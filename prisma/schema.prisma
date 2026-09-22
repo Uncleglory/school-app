@@ -214,7 +214,6 @@ model Student {
   guardians  ParentStudent[]
   attendance StudentAttendance[]
   invoices   Invoice[]
-  loans      BookLoan[]
   examResults ExamResult[]
 }
 
