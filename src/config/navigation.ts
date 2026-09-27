@@ -11,6 +11,7 @@ import {
   Bell,
   ClipboardList,
   BarChart3,
+  School,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 
@@ -32,6 +33,12 @@ export const navItems: NavItem[] = [
     title: "Users",
     href: "/dashboard/users",
     icon: Users,
+    roles: ["ADMIN"],
+  },
+  {
+    title: "Classes",
+    href: "/dashboard/classes",
+    icon: School,
     roles: ["ADMIN"],
   },
   {
