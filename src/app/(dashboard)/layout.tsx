@@ -20,7 +20,6 @@ export default async function DashboardLayout({
       <div className="flex flex-1 flex-col">
         <Header user={session.user} />
         <main className="flex-1 overflow-y-auto bg-muted/30 p-4 md:p-6">
-         <SignInCard alreadySigned={false} /> 
           {children}
         </main>
       </div>
