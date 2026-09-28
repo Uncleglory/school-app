@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { SignInCard } from "@/components/layout/sign-in-card";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -20,6 +21,7 @@ export default async function DashboardLayout({
       <div className="flex flex-1 flex-col">
         <Header user={session.user} />
         <main className="flex-1 overflow-y-auto bg-muted/30 p-4 md:p-6">
+         <SignInCard alreadySigned={false} /> 
           {children}
         </main>
       </div>
