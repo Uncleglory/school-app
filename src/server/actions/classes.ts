@@ -38,7 +38,7 @@ export async function createClass(data: {
     data: {
       name: data.name.trim(),
       level: data.level.trim(),
-      capacity: data.capacity ?? 40,
+      capacity: data.capacity ?? 100,
       formTeacherId: data.formTeacherId || null,
     },
   });

@@ -73,7 +73,7 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
         await createClass({
           name: fd.get("name") as string,
           level: fd.get("level") as string,
-          capacity: Number(fd.get("capacity")) || 40,
+          capacity: Number(fd.get("capacity")) || 100,
           formTeacherId: (fd.get("formTeacherId") as string) || undefined,
         });
         setShowForm(false);
@@ -102,7 +102,7 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
         await createClass({
           name,
           level: name,
-          capacity: 40,
+          capacity: 100,
         });
         setMessage(`Added ${name}`);
       } catch (err: any) {
@@ -176,7 +176,7 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
               </div>
               <div className="space-y-1.5">
                 <Label>Capacity</Label>
-                <Input name="capacity" type="number" defaultValue={40} min={1} />
+                <Input name="capacity" type="number" defaultValue={100} min={1} />
               </div>
               <div className="space-y-1.5">
                 <Label>Form Teacher (optional)</Label>
