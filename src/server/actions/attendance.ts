@@ -298,8 +298,7 @@ export async function getClasses() {
     select: { id: true, name: true },
   });
 }
-export async function signInAsMyself() {
-  const session = await auth();
+
   if (!session?.user) throw new Error("Unauthorized");
 
   const staff = await db.staff.findUnique({ where: { userId: session.user.id } });
