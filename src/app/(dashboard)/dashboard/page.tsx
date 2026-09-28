@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SignInCard } from "@/components/layout/sign-in-card";
 import {
   Users,
   GraduationCap,
@@ -18,6 +19,23 @@ export default async function DashboardPage() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  const myStaff = userId
+    ? await db.staff.findUnique({
+        where: { userId },
+        include: {
+          attendance: { where: { date: today }, take: 1 },
+        },
+      })
+    : null;
+
+  const alreadySigned = myStaff?.attendance[0]?.status === "PRESENT";
+  const checkInLabel = myStaff?.attendance[0]?.checkIn
+    ? myStaff.attendance[0].checkIn.toLocaleTimeString("en-NG", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : null;
 
   const [
     studentCount,
@@ -115,6 +133,10 @@ export default async function DashboardPage() {
           Live numbers from your school records.
         </p>
       </div>
+
+      {myStaff && (
+        <SignInCard alreadySigned={alreadySigned} checkInLabel={checkInLabel} />
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => (
