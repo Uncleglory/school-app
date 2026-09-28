@@ -1,5 +1,4 @@
 import { auth } from "@/auth";
-import { SignInCard } from "@/components/layout/sign-in-card";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
