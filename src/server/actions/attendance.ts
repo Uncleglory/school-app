@@ -225,7 +225,58 @@ export async function markStaffAttendance(data: {
   revalidatePath("/dashboard");
   return { success: true };
 }
+export async function signInAsMyself() {
+  const session = await auth();
 
+  if (!session?.user) {
+    throw new Error("Unauthorized");
+  }
+
+  const staff = await db.staff.findUnique({
+    where: { userId: session.user.id },
+  });
+
+  if (!staff) {
+    throw new Error(
+      "No staff record. Ask the admin to add you under Staff first."
+    );
+  }
+
+  const date = new Date().toISOString().split("T")[0];
+
+  const existing = await db.staffAttendance.findUnique({
+    where: {
+      staffId_date: {
+        staffId: staff.id,
+        date: new Date(date),
+      },
+    },
+  });
+
+  if (existing) {
+    return {
+      success: true,
+      already: true,
+    };
+  }
+
+  await db.staffAttendance.create({
+    data: {
+      staffId: staff.id,
+      date: new Date(date),
+      status: "PRESENT",
+      checkIn: new Date(),
+    },
+  });
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/attendance");
+
+  return {
+    success: true,
+    already: false,
+  };
+}
 // ─────────────────────────────────────────────
 // QUERIES
 // ─────────────────────────────────────────────
