@@ -314,3 +314,21 @@ export async function getClasses() {
     checkIn: new Date().toISOString(),
   });
 }
+
+export async function signInAsMyself() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  const staff = await db.staff.findUnique({ where: { userId: session.user.id } });
+  if (!staff) {
+    throw new Error("No staff record. Ask the admin to add you under Staff first.");
+  }
+
+  const date = new Date().toISOString().split("T")[0];
+  return markStaffAttendance({
+    staffId: staff.id,
+    date,
+    status: "PRESENT",
+    checkIn: new Date().toISOString(),
+  });
+}
