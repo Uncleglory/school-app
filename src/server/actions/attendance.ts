@@ -233,8 +233,11 @@ export async function signInAsMyself() {
   }
 
   const staff = await db.staff.findUnique({
-    where: { userId: session.user.id },
-  });
+  where: { userId: session.user.id },
+  include: {
+    user: true,
+  },
+});
 
   if (!staff) {
     throw new Error(
@@ -308,7 +311,36 @@ export async function signInAsMyself() {
       checkIn: now,
     },
   });
+  const staffName = `${staff.user?.firstName || ""} ${staff.user?.lastName || ""}`.trim();
 
+  const timeLabel = new Intl.DateTimeFormat("en-NG", {
+    timeZone: "Africa/Lagos",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(now);
+
+  const admins = await db.user.findMany({
+    where: {
+      role: "ADMIN",
+      isActive: true,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  for (const admin of admins) {
+    await db.notification.create({
+      data: {
+        userId: admin.id,
+        type: "GENERAL",
+        title: "Staff Sign-in",
+        message: `${staffName} signed in at ${timeLabel} (${status}).`,
+        link: "/dashboard/attendance?tab=staff",
+      },
+    });
+    }
   revalidatePath("/dashboard");
   revalidatePath("/dashboard/attendance");
 
