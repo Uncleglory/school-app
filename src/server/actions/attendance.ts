@@ -264,7 +264,6 @@ export async function signInAsMyself() {
   const day = getPart("day");
   const hour = Number(getPart("hour"));
   const minute = Number(getPart("minute"));
-  const second = Number(getPart("second"));
 
   const today = new Date(`${year}-${month}-${day}T00:00:00`);
 
