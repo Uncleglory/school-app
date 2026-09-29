@@ -242,13 +242,46 @@ export async function signInAsMyself() {
     );
   }
 
-  const date = new Date().toISOString().split("T")[0];
+  // Nigeria school time (Africa/Lagos)
+  const now = new Date();
+
+  const nigeriaTime = new Intl.DateTimeFormat("en-NG", {
+    timeZone: "Africa/Lagos",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+
+  const getPart = (type: string) =>
+    nigeriaTime.find((part) => part.type === type)?.value || "";
+
+  const year = getPart("year");
+  const month = getPart("month");
+  const day = getPart("day");
+  const hour = Number(getPart("hour"));
+  const minute = Number(getPart("minute"));
+  const second = Number(getPart("second"));
+
+  const today = new Date(`${year}-${month}-${day}T00:00:00`);
+
+  // Self sign-in closes at 3:00 PM Nigeria time.
+  const currentMinutes = hour * 60 + minute;
+
+  if (currentMinutes >= 15 * 60) {
+    throw new Error(
+      "Sign-in is closed for today. School sign-in closes at 3:00 PM."
+    );
+  }
 
   const existing = await db.staffAttendance.findUnique({
     where: {
       staffId_date: {
         staffId: staff.id,
-        date: new Date(date),
+        date: today,
       },
     },
   });
@@ -260,12 +293,20 @@ export async function signInAsMyself() {
     };
   }
 
+  // 7:45 AM or earlier = PRESENT
+  // After 7:45 AM = LATE
+  const currentTimeMinutes = hour * 60 + minute;
+  const cutoffMinutes = 7 * 60 + 45;
+
+  const status =
+    currentTimeMinutes <= cutoffMinutes ? "PRESENT" : "LATE";
+
   await db.staffAttendance.create({
     data: {
       staffId: staff.id,
-      date: new Date(date),
-      status: "PRESENT",
-      checkIn: new Date(),
+      date: today,
+      status,
+      checkIn: now,
     },
   });
 
@@ -275,6 +316,7 @@ export async function signInAsMyself() {
   return {
     success: true,
     already: false,
+    status,
   };
 }
 // ─────────────────────────────────────────────
