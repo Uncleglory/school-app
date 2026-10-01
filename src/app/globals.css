@@ -1,26 +1,33 @@
 @import "tailwindcss";
 
 @theme {
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
-  --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.145 0 0);
-  --color-popover: oklch(1 0 0);
-  --color-popover-foreground: oklch(0.145 0 0);
-  --color-primary: oklch(0.45 0.18 265);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
-  --color-accent: oklch(0.97 0 0);
-  --color-accent-foreground: oklch(0.205 0 0);
-  --color-destructive: oklch(0.577 0.245 27.325);
-  --color-destructive-foreground: oklch(0.985 0 0);
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.45 0.18 265);
-  --radius: 0.625rem;
+  --color-navy: #0b1d3a;
+  --color-navy-deep: #071426;
+  --color-gold: #c9a227;
+  --color-gold-soft: #e8d48b;
+  --color-ivory: #faf7f0;
+  --color-background: #f6f3ea;
+  --color-foreground: #0b1d3a;
+  --color-card: #ffffff;
+  --color-card-foreground: #0b1d3a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0b1d3a;
+  --color-primary: #c9a227;
+  --color-primary-foreground: #0b1d3a;
+  --color-secondary: #efe8d8;
+  --color-secondary-foreground: #0b1d3a;
+  --color-muted: #efe8d8;
+  --color-muted-foreground: #5c6573;
+  --color-accent: #efe8d8;
+  --color-accent-foreground: #0b1d3a;
+  --color-destructive: #b42318;
+  --color-destructive-foreground: #faf7f0;
+  --color-border: #e6dcc4;
+  --color-input: #e6dcc4;
+  --color-ring: #c9a227;
+  --radius: 0.75rem;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", ui-serif, Georgia, serif;
 }
 
 @layer base {
@@ -28,11 +35,23 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
 }
 
-/* Print / PDF styles */
+.font-display {
+  font-family: var(--font-display);
+}
+
+.gold-card {
+  border-left: 4px solid var(--color-gold);
+  box-shadow: 0 10px 30px -18px rgb(11 29 58 / 0.35);
+}
+
 @media print {
   body {
     background: white !important;
@@ -58,4 +77,3 @@
     size: A4;
   }
 }
-
