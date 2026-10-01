@@ -4,14 +4,16 @@ import { useState, useTransition } from "react";
 import {
   createFeeStructure,
   generateInvoicesForStructure,
+  hideFeeStructure,
   recordPayment,
+  updateFeeStructure,
 } from "@/server/actions/fees";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { Wallet, FileText, CreditCard, Plus, Zap } from "lucide-react";
+import { Wallet, FileText, CreditCard, Plus, Zap, Pencil, EyeOff } from "lucide-react";
 
 type Structure = {
   id: string;
@@ -51,6 +53,7 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
   const [tab, setTab] = useState<"overview" | "structures" | "invoices">("overview");
   const [isPending, startTransition] = useTransition();
   const [showCreate, setShowCreate] = useState(false);
+  const [editing, setEditing] = useState<Structure | null>(null);
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
@@ -82,6 +85,37 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
       try {
         const res = await generateInvoicesForStructure(structureId);
         setMessage(`Generated ${res.created} invoices`);
+      } catch (err: any) {
+        setMessage(err.message || "Failed");
+      }
+    });
+  }
+
+  function handleUpdate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editing) return;
+    const fd = new FormData(e.currentTarget);
+    startTransition(async () => {
+      try {
+        await updateFeeStructure(editing.id, {
+          name: fd.get("name") as string,
+          amount: Number(fd.get("amount")),
+          dueDate: fd.get("dueDate") as string,
+        });
+        setEditing(null);
+        setMessage("Fee amount and details saved.");
+      } catch (err: any) {
+        setMessage(err.message || "Failed");
+      }
+    });
+  }
+
+  function handleHide(id: string, name: string) {
+    if (!confirm(`Hide / remove “${name}”? This only works if no invoices were generated yet.`)) return;
+    startTransition(async () => {
+      try {
+        await hideFeeStructure(id);
+        setMessage("Fee structure hidden.");
       } catch (err: any) {
         setMessage(err.message || "Failed");
       }
@@ -127,7 +161,6 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
         </div>
       )}
 
-      {/* Tabs */}
       <div className="flex gap-2">
         {(["overview", "structures", "invoices"] as const).map((t) => (
           <Button key={t} variant={tab === t ? "default" : "outline"} size="sm" onClick={() => setTab(t)}>
@@ -139,7 +172,6 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
         ))}
       </div>
 
-      {/* Overview */}
       {tab === "overview" && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -161,7 +193,6 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
         </div>
       )}
 
-      {/* Structures */}
       {tab === "structures" && (
         <div className="space-y-4">
           {canManage && (
@@ -179,7 +210,7 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
                 <form onSubmit={handleCreateStructure} className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label>Name</Label>
-                    <Input name="name" placeholder="Grade 7 – Term 1 Tuition" required />
+                    <Input name="name" placeholder="Primary 1 – Term 1 Tuition" required />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Amount (₦)</Label>
@@ -218,6 +249,34 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
             </Card>
           )}
 
+          {editing && canManage && (
+            <Card className="gold-card">
+              <CardHeader>
+                <CardTitle className="text-base">Edit fee — add or change the amount</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleUpdate} className="grid gap-3 sm:grid-cols-3">
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>Name</Label>
+                    <Input name="name" required defaultValue={editing.name} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Amount (₦)</Label>
+                    <Input name="amount" type="number" min="0" step="0.01" required defaultValue={Number(editing.amount)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Due Date</Label>
+                    <Input name="dueDate" type="date" required defaultValue={String(editing.dueDate).slice(0, 10)} />
+                  </div>
+                  <div className="sm:col-span-3 flex gap-2">
+                    <Button type="submit" disabled={isPending}>Save amount</Button>
+                    <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardContent className="pt-4">
               {structures.length === 0 ? (
@@ -247,9 +306,17 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
                         <td className="py-3">{s._count.invoices}</td>
                         {canManage && (
                           <td className="py-3 text-right">
-                            <Button size="sm" variant="outline" disabled={isPending} onClick={() => handleGenerate(s.id)}>
-                              <Zap className="h-3.5 w-3.5 mr-1" /> Generate Invoices
-                            </Button>
+                            <div className="flex justify-end gap-1 flex-wrap">
+                              <Button size="sm" variant="outline" onClick={() => { setEditing(s); setShowCreate(false); }}>
+                                <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                              </Button>
+                              <Button size="sm" variant="outline" disabled={isPending} onClick={() => handleHide(s.id, s.name)}>
+                                <EyeOff className="h-3.5 w-3.5 mr-1" /> Hide
+                              </Button>
+                              <Button size="sm" variant="outline" disabled={isPending} onClick={() => handleGenerate(s.id)}>
+                                <Zap className="h-3.5 w-3.5 mr-1" /> Generate Invoices
+                              </Button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -262,7 +329,6 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
         </div>
       )}
 
-      {/* Invoices */}
       {tab === "invoices" && (
         <Card>
           <CardContent className="pt-4">
@@ -306,9 +372,7 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
                           <td className="py-3 text-right space-x-1">
                             {inv.payments?.length > 0 && (
                               <Button size="sm" variant="ghost" asChild>
-                                <a href={`/dashboard/fees/receipt/${inv.payments[0].id}`}>
-                                  Receipt
-                                </a>
+                                <a href={`/dashboard/fees/receipt/${inv.payments[0].id}`}>Receipt</a>
                               </Button>
                             )}
                             {canManage && balance > 0 && (
@@ -328,7 +392,6 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
         </Card>
       )}
 
-      {/* Payment Modal (simple) */}
       {payInvoiceId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <Card className="w-full max-w-md">
