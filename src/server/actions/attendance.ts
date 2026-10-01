@@ -232,16 +232,26 @@ export async function markStaffAttendance(data: {
 // src/app/api/attendance/qr-signin/route.ts
 // ─────────────────────────────────────────────
 
-export async function signInAsMyself() {
+export async function signInAsMyself(): Promise<{
+  success: boolean;
+  already: boolean;
+  status?: string;
+}> {
   const session = await auth();
 
   if (!session?.user) {
     throw new Error("Unauthorized");
   }
 
-  throw new Error(
-    "Please scan the school QR code at school to sign in."
-  );
+  // Self sign-in is disabled: staff must scan the school QR code.
+  const qrRequired = true;
+  if (qrRequired) {
+    throw new Error(
+      "Please scan the school QR code at school to sign in."
+    );
+  }
+
+  return { success: false, already: false };
 }
 
 // ─────────────────────────────────────────────
