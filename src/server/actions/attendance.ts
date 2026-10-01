@@ -208,7 +208,6 @@ export async function markStaffAttendance(data: {
     });
 
     for (const admin of admins) {
-      // Don't notify the person who just marked it if they are the only admin (optional)
       await db.notification.create({
         data: {
           userId: admin.id,
@@ -225,6 +224,14 @@ export async function markStaffAttendance(data: {
   revalidatePath("/dashboard");
   return { success: true };
 }
+
+// ─────────────────────────────────────────────
+// STAFF SELF SIGN-IN (DISABLED)
+// Staff must now scan the school QR code at school.
+// The QR sign-in is handled by:
+// src/app/api/attendance/qr-signin/route.ts
+// ─────────────────────────────────────────────
+
 export async function signInAsMyself() {
   const session = await auth();
 
@@ -232,124 +239,11 @@ export async function signInAsMyself() {
     throw new Error("Unauthorized");
   }
 
-  const staff = await db.staff.findUnique({
-  where: { userId: session.user.id },
-  include: {
-    user: true,
-  },
-});
-
-  if (!staff) {
-    throw new Error(
-      "No staff record. Ask the admin to add you under Staff first."
-    );
-  }
-
-  // Nigeria school time (Africa/Lagos)
-  const now = new Date();
-
-  const nigeriaTime = new Intl.DateTimeFormat("en-NG", {
-    timeZone: "Africa/Lagos",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(now);
-
-  const getPart = (type: string) =>
-    nigeriaTime.find((part) => part.type === type)?.value || "";
-
-  const year = getPart("year");
-  const month = getPart("month");
-  const day = getPart("day");
-  const hour = Number(getPart("hour"));
-  const minute = Number(getPart("minute"));
-
-  const today = new Date(`${year}-${month}-${day}T00:00:00`);
-
-  // Self sign-in closes at 3:00 PM Nigeria time.
-  const currentMinutes = hour * 60 + minute;
-
-  if (currentMinutes >= 15 * 60) {
-    throw new Error(
-      "Sign-in is closed for today. School sign-in closes at 3:00 PM."
-    );
-  }
-
-  const existing = await db.staffAttendance.findUnique({
-    where: {
-      staffId_date: {
-        staffId: staff.id,
-        date: today,
-      },
-    },
-  });
-
-  if (existing) {
-    return {
-      success: true,
-      already: true,
-    };
-  }
-
-  // 7:45 AM or earlier = PRESENT
-  // After 7:45 AM = LATE
-  const currentTimeMinutes = hour * 60 + minute;
-  const cutoffMinutes = 7 * 60 + 45;
-
-  const status =
-    currentTimeMinutes <= cutoffMinutes ? "PRESENT" : "LATE";
-
-  await db.staffAttendance.create({
-    data: {
-      staffId: staff.id,
-      date: today,
-      status,
-      checkIn: now,
-    },
-  });
-  const staffName = `${staff.user?.firstName || ""} ${staff.user?.lastName || ""}`.trim();
-
-  const timeLabel = new Intl.DateTimeFormat("en-NG", {
-    timeZone: "Africa/Lagos",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  }).format(now);
-
-  const admins = await db.user.findMany({
-    where: {
-      role: "ADMIN",
-      isActive: true,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  for (const admin of admins) {
-    await db.notification.create({
-      data: {
-        userId: admin.id,
-        type: "GENERAL",
-        title: "Staff Sign-in",
-        message: `${staffName} signed in at ${timeLabel} (${status}).`,
-        link: "/dashboard/attendance?tab=staff",
-      },
-    });
-    }
-  revalidatePath("/dashboard");
-  revalidatePath("/dashboard/attendance");
-
-  return {
-    success: true,
-    already: false,
-    status,
-  };
+  throw new Error(
+    "Please scan the school QR code at school to sign in."
+  );
 }
+
 // ─────────────────────────────────────────────
 // QUERIES
 // ─────────────────────────────────────────────
@@ -422,4 +316,3 @@ export async function getClasses() {
     select: { id: true, name: true },
   });
 }
-
