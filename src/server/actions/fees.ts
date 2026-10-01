@@ -39,6 +39,48 @@ export async function createFeeStructure(data: {
   revalidatePath("/dashboard/fees");
   return structure;
 }
+export async function updateFeeStructure(
+  id: string,
+  data: { name?: string; amount?: number; dueDate?: string }
+) {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
+  await db.feeStructure.update({
+    where: { id },
+    data: {
+      ...(data.name !== undefined && { name: data.name.trim() }),
+      ...(data.amount !== undefined && { amount: new Decimal(data.amount) }),
+      ...(data.dueDate !== undefined && { dueDate: new Date(data.dueDate) }),
+    },
+  });
+
+  revalidatePath("/dashboard/fees");
+}
+
+export async function hideFeeStructure(id: string) {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
+  const structure = await db.feeStructure.findUnique({
+    where: { id },
+    include: { _count: { select: { invoices: true } } },
+  });
+  if (!structure) throw new Error("Fee not found");
+
+  if (structure._count.invoices > 0) {
+    throw new Error(
+      "This fee already has invoices. Edit the amount instead of hiding it, or keep it for records."
+    );
+  }
+
+  await db.feeStructure.delete({ where: { id } });
+  revalidatePath("/dashboard/fees");
+}
 
 export async function getFeeStructures() {
   return db.feeStructure.findMany({
