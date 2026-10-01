@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -19,9 +18,10 @@ interface HeaderProps {
     image?: string | null;
     role: string;
   };
+  schoolName?: string;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, schoolName = "Glory Schools" }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const role = user.role as Role;
@@ -38,33 +38,35 @@ export function Header({ user }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b bg-background/95 px-4 backdrop-blur md:px-6">
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-ivory/90 px-4 backdrop-blur md:px-6">
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="md:hidden text-navy"
           aria-label="Open menu"
           onClick={() => setOpen(true)}
         >
           <Menu className="h-5 w-5" />
         </Button>
 
-        <p className="md:hidden font-semibold text-sm">Menu</p>
+        <p className="md:hidden font-display text-base font-semibold text-navy">
+          {schoolName}
+        </p>
 
         <div className="flex-1" />
 
         <div className="flex items-center gap-3">
           <div className="hidden text-right sm:block">
-            <p className="text-sm font-medium leading-none">{user.name}</p>
+            <p className="text-sm font-medium leading-none text-navy">{user.name}</p>
             <p className="text-xs text-muted-foreground capitalize">
               {user.role.toLowerCase()}
             </p>
           </div>
 
-          <Avatar className="h-9 w-9">
+          <Avatar className="h-9 w-9 border border-gold/40">
             <AvatarImage src={user.image || undefined} alt={user.name || ""} />
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+            <AvatarFallback className="bg-gold/20 text-navy text-xs font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>
@@ -77,7 +79,7 @@ export function Header({ user }: HeaderProps) {
         </div>
       </header>
 
-      <nav className="md:hidden sticky top-16 z-30 flex gap-2 overflow-x-auto border-b bg-background px-3 py-2">
+      <nav className="md:hidden sticky top-16 z-30 flex gap-2 overflow-x-auto border-b bg-ivory px-3 py-2">
         {filteredItems.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -89,8 +91,8 @@ export function Header({ user }: HeaderProps) {
               className={cn(
                 "shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium",
                 isActive
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-foreground"
+                  ? "bg-gold text-navy border-gold"
+                  : "bg-card text-navy border-border"
               )}
             >
               {item.title}
@@ -103,17 +105,18 @@ export function Header({ user }: HeaderProps) {
         <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0 bg-navy/50"
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-72 overflow-y-auto bg-card p-4 shadow-xl">
+          <div className="absolute left-0 top-0 h-full w-72 overflow-y-auto bg-navy p-4 text-ivory shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <span className="font-semibold">SchoolApp</span>
+              <span className="font-display text-lg font-semibold">{schoolName}</span>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
+                className="text-ivory hover:bg-white/10 hover:text-ivory"
                 onClick={() => setOpen(false)}
               >
                 <X className="h-5 w-5" />
@@ -130,10 +133,8 @@ export function Header({ user }: HeaderProps) {
                     href={item.href}
                     onClick={() => setOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium",
-                      isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground"
+                      "flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium",
+                      isActive ? "bg-gold text-navy" : "text-ivory/80"
                     )}
                   >
                     <item.icon className="h-4 w-4" />
