@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import {
+  clearUnpaidInvoices,
   createFeeStructure,
   generateInvoicesForStructure,
   hideFeeStructure,
@@ -13,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
-import { Wallet, FileText, CreditCard, Plus, Zap, Pencil, EyeOff, Banknote } from "lucide-react";
+import { Wallet, FileText, CreditCard, Plus, Zap, Pencil, EyeOff, Banknote, Trash2 } from "lucide-react";
 
 type Structure = {
   id: string;
@@ -66,6 +67,10 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
   const [editing, setEditing] = useState<Structure | null>(null);
   const [message, setMessage] = useState("");
 
+  // Generate-invoices panel state
+  const [generatingFor, setGeneratingFor] = useState<Structure | null>(null);
+  const [genClassIds, setGenClassIds] = useState<string[]>([]);
+
   // Payment form state
   const [payOpen, setPayOpen] = useState(false);
   const [payClass, setPayClass] = useState("");
@@ -74,6 +79,10 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
   const [payAmount, setPayAmount] = useState("");
 
   const canManage = ["ADMIN", "ACCOUNTANT"].includes(userRole);
+
+  const sortedClasses = [...classes].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true })
+  );
 
   // Invoices that still owe money
   const owing = invoices.filter(
@@ -178,11 +187,50 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
     });
   }
 
-  function handleGenerate(structureId: string) {
+  // Tap on "Generate Invoices"
+  function handleGenerateClick(s: Structure) {
+    if (s.class) {
+      // Fee already belongs to one class: generate straight away
+      runGenerate(s.id);
+    } else {
+      // Fee is for all classes: ask which classes pay it
+      setGeneratingFor(s);
+      setGenClassIds([]);
+      setShowCreate(false);
+      setEditing(null);
+    }
+  }
+
+  function runGenerate(structureId: string, classIds?: string[]) {
     startTransition(async () => {
       try {
-        const res = await generateInvoicesForStructure(structureId);
+        const res = await generateInvoicesForStructure(structureId, classIds);
+        setGeneratingFor(null);
+        setGenClassIds([]);
         setMessage(`Generated ${res.created} invoices`);
+      } catch (err: any) {
+        setMessage(err.message || "Failed");
+      }
+    });
+  }
+
+  function toggleGenClass(id: string) {
+    setGenClassIds((current) =>
+      current.includes(id) ? current.filter((c) => c !== id) : [...current, id]
+    );
+  }
+
+  function handleClearUnpaid(s: Structure) {
+    if (
+      !confirm(
+        `Remove all UNPAID invoices for “${s.name}”? Invoices that already have a payment are kept. You can generate them again afterwards.`
+      )
+    )
+      return;
+    startTransition(async () => {
+      try {
+        const res = await clearUnpaidInvoices(s.id);
+        setMessage(`Removed ${res.deleted} unpaid invoices.`);
       } catch (err: any) {
         setMessage(err.message || "Failed");
       }
@@ -317,7 +365,7 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
         <div className="space-y-4">
           {canManage && (
             <div className="flex justify-end">
-              <Button size="sm" onClick={() => setShowCreate(!showCreate)}>
+              <Button size="sm" onClick={() => { setShowCreate(!showCreate); setGeneratingFor(null); }}>
                 <Plus className="h-4 w-4 mr-1.5" /> New Fee Structure
               </Button>
             </div>
@@ -397,6 +445,73 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
             </Card>
           )}
 
+          {generatingFor && canManage && (
+            <Card className="gold-card">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  Generate invoices: {generatingFor.name}
+                </CardTitle>
+                <CardDescription>
+                  Tick only the classes that pay this fee ({formatCurrency(Number(generatingFor.amount))}). Students in other classes will not get this invoice.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGenClassIds(sortedClasses.map((c) => c.id))}
+                  >
+                    Select all
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setGenClassIds([])}
+                  >
+                    Clear
+                  </Button>
+                  <span className="text-xs text-muted-foreground self-center">
+                    {genClassIds.length} selected
+                  </span>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 max-h-72 overflow-y-auto rounded-md border p-3">
+                  {sortedClasses.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={genClassIds.includes(c.id)}
+                        onChange={() => toggleGenClass(c.id)}
+                        className="h-4 w-4"
+                      />
+                      {c.name}
+                    </label>
+                  ))}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    disabled={isPending || genClassIds.length === 0}
+                    onClick={() => runGenerate(generatingFor.id, genClassIds)}
+                  >
+                    Generate for selected classes
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setGeneratingFor(null); setGenClassIds([]); }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardContent className="pt-4">
               {structures.length === 0 ? (
@@ -428,14 +543,17 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
                           {canManage && (
                             <td className="py-3 text-right">
                               <div className="flex justify-end gap-1 flex-wrap">
-                                <Button size="sm" variant="outline" onClick={() => { setEditing(s); setShowCreate(false); }}>
+                                <Button size="sm" variant="outline" onClick={() => { setEditing(s); setShowCreate(false); setGeneratingFor(null); }}>
                                   <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                                </Button>
+                                <Button size="sm" variant="outline" disabled={isPending} onClick={() => handleGenerateClick(s)}>
+                                  <Zap className="h-3.5 w-3.5 mr-1" /> Generate Invoices
+                                </Button>
+                                <Button size="sm" variant="outline" disabled={isPending || s._count.invoices === 0} onClick={() => handleClearUnpaid(s)}>
+                                  <Trash2 className="h-3.5 w-3.5 mr-1" /> Clear Unpaid
                                 </Button>
                                 <Button size="sm" variant="outline" disabled={isPending} onClick={() => handleHide(s.id, s.name)}>
                                   <EyeOff className="h-3.5 w-3.5 mr-1" /> Hide
-                                </Button>
-                                <Button size="sm" variant="outline" disabled={isPending} onClick={() => handleGenerate(s.id)}>
-                                  <Zap className="h-3.5 w-3.5 mr-1" /> Generate Invoices
                                 </Button>
                               </div>
                             </td>
