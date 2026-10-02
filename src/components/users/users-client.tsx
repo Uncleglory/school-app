@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Plus, Search, Trash2, Pencil } from "lucide-react";
 
 type UserItem = {
   id: string;
@@ -40,6 +40,8 @@ const ROLES = [
 export function UsersClient({ users: initial }: Props) {
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<UserItem | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [message, setMessage] = useState("");
@@ -75,6 +77,40 @@ export function UsersClient({ users: initial }: Props) {
         setMessage("User created successfully. They can now log in.");
       } catch (err: any) {
         setMessage(err.message || "Failed to create user");
+      }
+    });
+  }
+
+  function handleUpdate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editing) return;
+    const fd = new FormData(e.currentTarget);
+    const newPassword = ((fd.get("password") as string) || "").trim();
+
+    if (newPassword && newPassword.length < 6) {
+      setMessage("The new password must be at least 6 characters.");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await updateUser(editing.id, {
+          firstName: fd.get("firstName") as string,
+          lastName: fd.get("lastName") as string,
+          email: fd.get("email") as string,
+          phone: (fd.get("phone") as string) || "",
+          role: fd.get("role") as any,
+          ...(newPassword ? { password: newPassword } : {}),
+        });
+        setEditing(null);
+        setShowPassword(false);
+        setMessage(
+          newPassword
+            ? "User updated and the new password is saved."
+            : "User updated successfully."
+        );
+      } catch (err: any) {
+        setMessage(err.message || "Failed to update user");
       }
     });
   }
@@ -147,7 +183,13 @@ export function UsersClient({ users: initial }: Props) {
             ))}
           </select>
         </div>
-        <Button size="sm" onClick={() => setShowForm(!showForm)}>
+        <Button
+          size="sm"
+          onClick={() => {
+            setShowForm(!showForm);
+            setEditing(null);
+          }}
+        >
           <Plus className="h-4 w-4 mr-1.5" /> Create User
         </Button>
       </div>
@@ -232,6 +274,94 @@ export function UsersClient({ users: initial }: Props) {
         </Card>
       )}
 
+      {editing && (
+        <Card className="gold-card">
+          <CardHeader>
+            <CardTitle className="text-base">
+              Edit user: {editing.firstName} {editing.lastName}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              key={editing.id}
+              onSubmit={handleUpdate}
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              <div className="space-y-1.5">
+                <Label>First Name</Label>
+                <Input name="firstName" required defaultValue={editing.firstName} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Last Name</Label>
+                <Input name="lastName" required defaultValue={editing.lastName} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Email (login)</Label>
+                <Input name="email" type="email" required defaultValue={editing.email} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Phone</Label>
+                <Input name="phone" defaultValue={editing.phone || ""} placeholder="+234..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Role</Label>
+                <select
+                  name="role"
+                  required
+                  defaultValue={editing.role}
+                  className="flex h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>New Password (leave empty to keep the current one)</Label>
+                <Input
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  minLength={6}
+                  placeholder="min 6 characters"
+                  autoComplete="new-password"
+                />
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={showPassword}
+                    onChange={(e) => setShowPassword(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Show password
+                </label>
+              </div>
+
+              <p className="sm:col-span-2 lg:col-span-3 text-xs text-muted-foreground">
+                If you change a Parent into a Teacher, Staff, Librarian or Accountant, a staff record is created automatically. The old password cannot be shown, you can only set a new one.
+              </p>
+
+              <div className="sm:col-span-2 lg:col-span-3 flex gap-2">
+                <Button type="submit" disabled={isPending}>
+                  Save changes
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditing(null);
+                    setShowPassword(false);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="pt-4">
           <div className="overflow-x-auto">
@@ -282,6 +412,20 @@ export function UsersClient({ users: initial }: Props) {
                       </span>
                     </td>
                     <td className="py-3 text-right space-x-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        onClick={() => {
+                          setEditing(u);
+                          setShowForm(false);
+                          setShowPassword(false);
+                          window.scrollTo({ top: 0, behavior: "smooth" });
+                        }}
+                        disabled={isPending}
+                      >
+                        <Pencil className="h-3 w-3 mr-1" /> Edit
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline"
