@@ -39,6 +39,7 @@ export async function createFeeStructure(data: {
   revalidatePath("/dashboard/fees");
   return structure;
 }
+
 export async function updateFeeStructure(
   id: string,
   data: { name?: string; amount?: number; dueDate?: string }
@@ -98,7 +99,10 @@ export async function getFeeStructures() {
 // AUTO-GENERATE INVOICES
 // ─────────────────────────────────────────────
 
-export async function generateInvoicesForStructure(feeStructureId: string) {
+export async function generateInvoicesForStructure(
+  feeStructureId: string,
+  classIds?: string[]
+) {
   const session = await auth();
   if (!session?.user || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
     throw new Error("Unauthorized");
@@ -110,30 +114,51 @@ export async function generateInvoicesForStructure(feeStructureId: string) {
   });
   if (!structure) throw new Error("Fee structure not found");
 
-  // Get target students
+  // Decide which classes receive this fee
+  let targetClassIds: string[];
+
+  if (structure.classId) {
+    // Fee was created for one specific class
+    targetClassIds = [structure.classId];
+  } else {
+    // Fee is for "All Classes": the person must choose the classes
+    targetClassIds = (classIds || []).filter(Boolean);
+    if (targetClassIds.length === 0) {
+      throw new Error("Please choose at least one class for this fee.");
+    }
+  }
+
   const students = await db.student.findMany({
     where: {
       status: "ACTIVE",
-      ...(structure.classId ? { classId: structure.classId } : {}),
+      classId: { in: targetClassIds },
     },
   });
 
-  let created = 0;
+  // Students who already have an invoice for this fee
+  const existingInvoices = await db.invoice.findMany({
+    where: { feeStructureId: structure.id },
+    select: { studentId: true },
+  });
+  const alreadyInvoiced = new Set(existingInvoices.map((i) => i.studentId));
+
+  // Next invoice number, based on the highest number already used
   const year = new Date().getFullYear();
+  const prefix = `INV-${year}-`;
+  const last = await db.invoice.findFirst({
+    where: { number: { startsWith: prefix } },
+    orderBy: { number: "desc" },
+    select: { number: true },
+  });
+  let sequence = last ? parseInt(last.number.slice(prefix.length), 10) || 0 : 0;
+
+  let created = 0;
 
   for (const student of students) {
-    // Skip if invoice already exists for this structure + student
-    const existing = await db.invoice.findFirst({
-      where: {
-        studentId: student.id,
-        feeStructureId: structure.id,
-      },
-    });
-    if (existing) continue;
+    if (alreadyInvoiced.has(student.id)) continue;
 
-    // Generate unique invoice number
-    const count = await db.invoice.count();
-    const number = `INV-${year}-${String(count + 1).padStart(5, "0")}`;
+    sequence += 1;
+    const number = `${prefix}${String(sequence).padStart(5, "0")}`;
 
     await db.invoice.create({
       data: {
@@ -152,7 +177,29 @@ export async function generateInvoicesForStructure(feeStructureId: string) {
   }
 
   revalidatePath("/dashboard/fees");
+  revalidatePath("/dashboard");
   return { created };
+}
+
+// Removes UNPAID invoices of one fee that have no payment recorded.
+// Invoices that already received any payment are never touched.
+export async function clearUnpaidInvoices(feeStructureId: string) {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
+  const result = await db.invoice.deleteMany({
+    where: {
+      feeStructureId,
+      status: { in: ["UNPAID", "OVERDUE"] },
+      payments: { none: {} },
+    },
+  });
+
+  revalidatePath("/dashboard/fees");
+  revalidatePath("/dashboard");
+  return { deleted: result.count };
 }
 
 // ─────────────────────────────────────────────
