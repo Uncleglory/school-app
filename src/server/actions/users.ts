@@ -6,6 +6,8 @@ import { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 
+const STAFF_ROLES: Role[] = ["TEACHER", "STAFF", "LIBRARIAN", "ACCOUNTANT"];
+
 export async function getUsers(roleFilter?: Role) {
   const session = await auth();
   if (!session?.user || session.user.role !== "ADMIN") {
@@ -103,6 +105,7 @@ export async function updateUser(
   data: {
     firstName?: string;
     lastName?: string;
+    email?: string;
     phone?: string;
     role?: Role;
     isActive?: boolean;
@@ -114,6 +117,22 @@ export async function updateUser(
     throw new Error("Only admins can update users");
   }
 
+  const current = await db.user.findUnique({
+    where: { id },
+    select: { id: true, email: true, role: true },
+  });
+  if (!current) throw new Error("User not found");
+
+  // Protect your own account
+  if (session.user.id === id) {
+    if (data.role && data.role !== "ADMIN") {
+      throw new Error("You cannot remove your own Admin role");
+    }
+    if (data.isActive === false) {
+      throw new Error("You cannot deactivate your own account");
+    }
+  }
+
   const updateData: any = {
     ...(data.firstName && { firstName: data.firstName.trim() }),
     ...(data.lastName && { lastName: data.lastName.trim() }),
@@ -122,7 +141,21 @@ export async function updateUser(
     ...(data.isActive !== undefined && { isActive: data.isActive }),
   };
 
-  if (data.password && data.password.length >= 6) {
+  // Email change (must stay unique)
+  if (data.email) {
+    const newEmail = data.email.toLowerCase().trim();
+    if (newEmail !== current.email) {
+      const taken = await db.user.findUnique({ where: { email: newEmail } });
+      if (taken) throw new Error("Another user already uses this email");
+      updateData.email = newEmail;
+    }
+  }
+
+  // Password change (leave empty to keep the current password)
+  if (data.password) {
+    if (data.password.length < 6) {
+      throw new Error("Password must be at least 6 characters");
+    }
     updateData.passwordHash = await bcrypt.hash(data.password, 12);
   }
 
@@ -130,6 +163,36 @@ export async function updateUser(
     where: { id },
     data: updateData,
   });
+
+  // If the role changed, make sure the matching Staff / Parent record exists
+  if (data.role && data.role !== current.role) {
+    if (STAFF_ROLES.includes(data.role)) {
+      const hasStaff = await db.staff.findUnique({ where: { userId: id } });
+      if (!hasStaff) {
+        await db.staff.create({
+          data: {
+            userId: id,
+            staffNo: `STF-${Date.now().toString().slice(-6)}`,
+            position: data.role,
+            hireDate: new Date(),
+            isTeaching: data.role === "TEACHER",
+          },
+        });
+      }
+    }
+
+    if (data.role === "PARENT") {
+      const hasParent = await db.parent.findUnique({ where: { userId: id } });
+      if (!hasParent) {
+        await db.parent.create({
+          data: {
+            userId: id,
+            relationship: "Guardian",
+          },
+        });
+      }
+    }
+  }
 
   revalidatePath("/dashboard/users");
   revalidatePath("/dashboard/staff");
