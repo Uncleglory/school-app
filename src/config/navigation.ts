@@ -22,12 +22,15 @@ export type NavItem = {
   roles: Role[];
 };
 
+// Students and parents only see Materials and Notifications for now.
+// The pages that show school-wide data (Fees, Attendance, Exams, Library)
+// are staff-only until they are changed to show one child's records.
 export const navItems: NavItem[] = [
   {
     title: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT", "LIBRARIAN", "ACCOUNTANT", "STAFF"],
+    roles: ["ADMIN", "TEACHER", "LIBRARIAN", "ACCOUNTANT", "STAFF"],
   },
   {
     title: "Users",
@@ -57,19 +60,19 @@ export const navItems: NavItem[] = [
     title: "Attendance",
     href: "/dashboard/attendance",
     icon: CalendarCheck,
-    roles: ["ADMIN", "TEACHER", "PARENT"],
+    roles: ["ADMIN", "TEACHER"],
   },
   {
     title: "Fees",
     href: "/dashboard/fees",
     icon: Wallet,
-    roles: ["ADMIN", "ACCOUNTANT", "PARENT"],
+    roles: ["ADMIN", "ACCOUNTANT"],
   },
   {
     title: "Exams",
     href: "/dashboard/exams",
     icon: ClipboardList,
-    roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT"],
+    roles: ["ADMIN", "TEACHER"],
   },
   {
     title: "Reports",
@@ -81,7 +84,7 @@ export const navItems: NavItem[] = [
     title: "Library",
     href: "/dashboard/library",
     icon: Book,
-    roles: ["ADMIN", "LIBRARIAN", "STUDENT", "TEACHER", "PARENT"],
+    roles: ["ADMIN", "LIBRARIAN", "TEACHER"],
   },
   {
     title: "Materials",
@@ -102,4 +105,3 @@ export const navItems: NavItem[] = [
     roles: ["ADMIN"],
   },
 ];
-
