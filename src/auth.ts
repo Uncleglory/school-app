@@ -13,11 +13,26 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const parsed = LoginSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
-        const { email, password } = parsed.data;
+        const { email: identifier, password } = parsed.data;
+        const loginId = identifier.trim();
 
-        const user = await db.user.findUnique({
-          where: { email: email.toLowerCase() },
-        });
+        let user: Awaited<ReturnType<typeof db.user.findUnique>> = null;
+
+        if (loginId.includes("@")) {
+          // Staff, parents, admins: log in with email
+          user = await db.user.findUnique({
+            where: { email: loginId.toLowerCase() },
+          });
+        } else {
+          // Secondary students: log in with admission number
+          const student = await db.student.findFirst({
+            where: { admissionNo: { equals: loginId, mode: "insensitive" } },
+            include: { user: true },
+          });
+          if (student?.user && student.user.role === "STUDENT") {
+            user = student.user;
+          }
+        }
 
         if (!user || !user.isActive) return null;
 
