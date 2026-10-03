@@ -9,6 +9,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 export default async function ReportsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!["ADMIN", "ACCOUNTANT"].includes(session.user.role)) redirect("/dashboard");
 
   const [feeReport, feeStats, exams] = await Promise.all([
     getFeeCollectionReport(),
