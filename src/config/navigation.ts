@@ -75,7 +75,7 @@ export const navItems: NavItem[] = [
     title: "Reports",
     href: "/dashboard/reports",
     icon: BarChart3,
-    roles: ["ADMIN", "TEACHER", "ACCOUNTANT"],
+    roles: ["ADMIN", "ACCOUNTANT"],
   },
   {
     title: "Library",
