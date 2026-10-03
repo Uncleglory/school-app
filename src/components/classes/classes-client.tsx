@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 
 type ClassItem = {
   id: string;
@@ -55,6 +55,7 @@ const SUGGESTED_CLASSES = [
 export function ClassesClient({ classes: initial, staff, userRole }: Props) {
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<ClassItem | null>(null);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const canManage = userRole === "ADMIN";
@@ -80,6 +81,26 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
         setMessage("Class created successfully");
       } catch (err: any) {
         setMessage(err.message || "Failed to create class");
+      }
+    });
+  }
+
+  function handleUpdate(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editing) return;
+    const fd = new FormData(e.currentTarget);
+    startTransition(async () => {
+      try {
+        await updateClass(editing.id, {
+          name: fd.get("name") as string,
+          level: fd.get("level") as string,
+          capacity: Number(fd.get("capacity")) || 100,
+          formTeacherId: (fd.get("formTeacherId") as string) || null,
+        });
+        setEditing(null);
+        setMessage("Class updated successfully");
+      } catch (err: any) {
+        setMessage(err.message || "Failed to update class");
       }
     });
   }
@@ -133,7 +154,7 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
           />
         </div>
         {canManage && (
-          <Button size="sm" onClick={() => setShowForm(!showForm)}>
+          <Button size="sm" onClick={() => { setShowForm(!showForm); setEditing(null); }}>
             <Plus className="h-4 w-4 mr-1.5" /> Add Class
           </Button>
         )}
@@ -205,6 +226,53 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
         </Card>
       )}
 
+      {editing && canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Edit {editing.name}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleUpdate} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1.5">
+                <Label>Class Name</Label>
+                <Input name="name" required defaultValue={editing.name} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Level</Label>
+                <Input name="level" required defaultValue={editing.level} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Capacity</Label>
+                <Input name="capacity" type="number" defaultValue={editing.capacity} min={1} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Form Teacher</Label>
+                <select
+                  name="formTeacherId"
+                  className="flex h-9 w-full rounded-md border px-3 text-sm"
+                  defaultValue={editing.formTeacherId || ""}
+                >
+                  <option value="">None</option>
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.user.lastName} {s.user.firstName} ({s.staffNo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2 lg:col-span-4 flex gap-2">
+                <Button type="submit" disabled={isPending}>
+                  Save changes
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="pt-4">
           <div className="overflow-x-auto">
@@ -233,15 +301,26 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
                     </td>
                     {canManage && (
                       <td className="py-3 text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600 h-7"
-                          onClick={() => handleDelete(c.id, c.name)}
-                          disabled={isPending}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7"
+                            onClick={() => { setEditing(c); setShowForm(false); }}
+                            disabled={isPending}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-red-600 h-7"
+                            onClick={() => handleDelete(c.id, c.name)}
+                            disabled={isPending}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </td>
                     )}
                   </tr>
