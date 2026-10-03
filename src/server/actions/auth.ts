@@ -19,7 +19,7 @@ export async function loginAction(
   });
 
   if (!validated.success) {
-    return { error: "Invalid email or password format" };
+    return { error: "Please check your login details and try again" };
   }
 
   try {
@@ -33,7 +33,7 @@ export async function loginAction(
     if (error instanceof AuthError) {
       switch (error.type) {
         case "CredentialsSignin":
-          return { error: "Invalid email or password" };
+          return { error: "Invalid login details" };
         default:
           return { error: "Something went wrong. Please try again." };
       }
