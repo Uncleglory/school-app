@@ -6,6 +6,15 @@ import { InvoiceStatus, PaymentMethod, Role, NotificationType } from "@prisma/cl
 import { revalidatePath } from "next/cache";
 import { Decimal } from "@prisma/client/runtime/library";
 
+// Students and parents must never read school-wide fee data
+async function requireNotStudentOrParent() {
+  const session = await auth();
+  if (!session?.user || ["STUDENT", "PARENT"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+}
+
 // ─────────────────────────────────────────────
 // FEE STRUCTURES
 // ─────────────────────────────────────────────
@@ -84,6 +93,8 @@ export async function hideFeeStructure(id: string) {
 }
 
 export async function getFeeStructures() {
+  await requireNotStudentOrParent();
+
   return db.feeStructure.findMany({
     include: {
       academicYear: true,
@@ -211,6 +222,8 @@ export async function getInvoices(filters?: {
   studentId?: string;
   classId?: string;
 }) {
+  await requireNotStudentOrParent();
+
   return db.invoice.findMany({
     where: {
       ...(filters?.status ? { status: filters.status } : {}),
@@ -230,6 +243,8 @@ export async function getInvoices(filters?: {
 }
 
 export async function getInvoiceById(id: string) {
+  await requireNotStudentOrParent();
+
   return db.invoice.findUnique({
     where: { id },
     include: {
@@ -376,6 +391,8 @@ export async function getTerms(academicYearId?: string) {
 }
 
 export async function getFeeStats() {
+  await requireNotStudentOrParent();
+
   const [totalInvoiced, totalPaid, unpaidCount, overdueCount] = await Promise.all([
     db.invoice.aggregate({ _sum: { amount: true } }),
     db.invoice.aggregate({ _sum: { amountPaid: true } }),
