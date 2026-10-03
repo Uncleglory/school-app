@@ -41,18 +41,23 @@ export default function LoginPage() {
             <p className="font-display text-xl font-semibold">Glory Schools 360</p>
           </div>
           <h2 className="font-display text-3xl text-navy">Sign in</h2>
-          <p className="text-sm text-muted-foreground mt-1 mb-6">Use your school email and password.</p>
+          <p className="text-sm text-muted-foreground mt-1 mb-6">
+            Staff and parents: use your email. Students: use your admission number.
+          </p>
 
           <form action={formAction} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email or Admission Number</Label>
               <Input
                 id="email"
                 name="email"
-                type="email"
-                placeholder="admin@school.com"
+                type="text"
+                placeholder="admin@school.com or admission number"
                 required
-                autoComplete="email"
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 disabled={isPending}
                 className="h-11"
               />
