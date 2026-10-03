@@ -5,7 +5,34 @@ import { db } from "@/lib/db";
 import { Gender, StudentStatus, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
+// Roles that may read student records (students and parents may not)
+const STAFF_ROLES: Role[] = ["ADMIN", "TEACHER", "ACCOUNTANT", "LIBRARIAN", "STAFF"];
+
+async function requireStaff() {
+  const session = await auth();
+  if (!session?.user || !STAFF_ROLES.includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+}
+
+// Only safe user fields: never include the password hash
+const SAFE_USER = {
+  select: {
+    id: true,
+    email: true,
+    firstName: true,
+    lastName: true,
+    phone: true,
+    role: true,
+    isActive: true,
+    avatarUrl: true,
+  },
+} as const;
+
 export async function getStudents(filters?: { classId?: string; status?: StudentStatus; search?: string }) {
+  await requireStaff();
+
   return db.student.findMany({
     where: {
       ...(filters?.classId ? { classId: filters.classId } : {}),
@@ -22,19 +49,21 @@ export async function getStudents(filters?: { classId?: string; status?: Student
     },
     include: {
       class: true,
-      guardians: { include: { parent: { include: { user: true } } } },
+      guardians: { include: { parent: { include: { user: SAFE_USER } } } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 }
 
 export async function getStudentById(id: string) {
+  await requireStaff();
+
   return db.student.findUnique({
     where: { id },
     include: {
       class: true,
-      user: true,
-      guardians: { include: { parent: { include: { user: true } } } },
+      user: SAFE_USER,
+      guardians: { include: { parent: { include: { user: SAFE_USER } } } },
       attendance: { orderBy: { date: "desc" }, take: 30 },
       invoices: { orderBy: { issuedAt: "desc" }, take: 10 },
     },
