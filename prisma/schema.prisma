@@ -153,16 +153,22 @@ model Class {
   feeStructures FeeStructure[]
 }
 
+enum SubjectLevel {
+  JUNIOR
+  SENIOR
+  BOTH
+}
+
 model Subject {
-  id   String @id @default(cuid())
-  name String
-  code String @unique
+  id    String       @id @default(cuid())
+  name  String
+  code  String       @unique
+  level SubjectLevel @default(BOTH)
 
   classes   ClassSubject[]
   materials TeachingMaterial[]
   results   ExamResult[]
 }
-
 model ClassSubject {
   id        String  @id @default(cuid())
   classId   String
