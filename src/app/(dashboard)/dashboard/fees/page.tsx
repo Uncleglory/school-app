@@ -13,6 +13,9 @@ import { FeesClient } from "@/components/fees/fees-client";
 export default async function FeesPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+  if (!["ADMIN", "ACCOUNTANT", "PARENT"].includes(session.user.role)) {
+    redirect("/dashboard");
+  }
 
   const [structures, invoices, stats, years, terms, classes] = await Promise.all([
     getFeeStructures(),
