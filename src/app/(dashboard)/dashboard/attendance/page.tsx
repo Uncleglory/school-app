@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { getClasses, getStudentsForAttendance, getStaffForAttendance } from "@/server/actions/attendance";
+import { getClassesForAttendanceUser, getStudentsForAttendance, getStaffForAttendance } from "@/server/actions/attendance";
 import { AttendanceClient } from "@/components/attendance/attendance-client";
 
 interface PageProps {
@@ -12,12 +12,13 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   if (!session?.user) redirect("/login");
 
   const params = await searchParams;
-  const tab = params.tab === "staff" ? "staff" : "students";
+  const isAdmin = session.user.role === "ADMIN";
+  const tab = params.tab === "staff" && isAdmin ? "staff" : "students";
   const date = params.date || new Date().toISOString().split("T")[0];
   const classId = params.classId || undefined;
 
   const [classes, students, staff] = await Promise.all([
-    getClasses(),
+    getClassesForAttendanceUser(),
     tab === "students" ? getStudentsForAttendance(classId, date) : Promise.resolve([]),
     tab === "staff" ? getStaffForAttendance(date) : Promise.resolve([]),
   ]);
