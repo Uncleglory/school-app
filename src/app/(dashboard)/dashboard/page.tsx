@@ -1,4 +1,3 @@
-
 import { auth } from "@/auth";
 import Link from "next/link";
 import { db } from "@/lib/db";
@@ -16,6 +15,7 @@ import {
 export default async function DashboardPage() {
   const session = await auth();
   const userId = session?.user?.id;
+  const role = session?.user?.role;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -72,7 +72,7 @@ export default async function DashboardPage() {
     }),
   ]);
 
-  const stats = [
+  const allStats = [
     {
       title: "Students",
       value: studentCount,
@@ -80,6 +80,7 @@ export default async function DashboardPage() {
       href: "/dashboard/students",
       icon: GraduationCap,
       color: "text-blue-600",
+      roles: ["ADMIN", "TEACHER"],
     },
     {
       title: "Staff",
@@ -88,6 +89,7 @@ export default async function DashboardPage() {
       href: "/dashboard/staff",
       icon: Users,
       color: "text-emerald-600",
+      roles: ["ADMIN"],
     },
     {
       title: "Classes",
@@ -96,6 +98,7 @@ export default async function DashboardPage() {
       href: "/dashboard/classes",
       icon: School,
       color: "text-violet-600",
+      roles: ["ADMIN"],
     },
     {
       title: "Present today",
@@ -104,6 +107,7 @@ export default async function DashboardPage() {
       href: "/dashboard/attendance",
       icon: CalendarCheck,
       color: "text-amber-600",
+      roles: ["ADMIN", "TEACHER", "PARENT"],
     },
     {
       title: "Pending fees",
@@ -112,6 +116,7 @@ export default async function DashboardPage() {
       href: "/dashboard/fees",
       icon: Wallet,
       color: "text-rose-600",
+      roles: ["ADMIN", "ACCOUNTANT", "PARENT"],
     },
     {
       title: "Alerts",
@@ -120,8 +125,13 @@ export default async function DashboardPage() {
       href: "/dashboard/notifications",
       icon: Bell,
       color: "text-orange-600",
+      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT", "LIBRARIAN", "ACCOUNTANT", "STAFF"],
     },
   ];
+
+  const stats = allStats.filter((s) => role && s.roles.includes(role));
+  const canSeeStudents = role === "ADMIN" || role === "TEACHER";
+  const canSeeStaff = role === "ADMIN";
 
   return (
     <div className="space-y-6">
@@ -156,63 +166,67 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent students</CardTitle>
-            <Link href="/dashboard/students" className="text-sm text-primary">
-              View all
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {recentStudents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No students yet. Open Students and add a pupil.
-              </p>
-            ) : (
-              <ul className="space-y-2 text-sm">
-                {recentStudents.map((s) => (
-                  <li key={s.id} className="flex justify-between border-b last:border-0 pb-2">
-                    <span className="font-medium">
-                      {s.lastName} {s.firstName}
-                    </span>
-                    <span className="text-muted-foreground">
-                      {s.class?.name || "No class"} · {s.admissionNo}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        {canSeeStudents && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Recent students</CardTitle>
+              <Link href="/dashboard/students" className="text-sm text-primary">
+                View all
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {recentStudents.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No students yet. Open Students and add a pupil.
+                </p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {recentStudents.map((s) => (
+                    <li key={s.id} className="flex justify-between border-b last:border-0 pb-2">
+                      <span className="font-medium">
+                        {s.lastName} {s.firstName}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {s.class?.name || "No class"} · {s.admissionNo}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Recent staff</CardTitle>
-            <Link href="/dashboard/staff" className="text-sm text-primary">
-              View all
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {recentStaff.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No staff yet. Open Staff and add a teacher.
-              </p>
-            ) : (
-              <ul className="space-y-2 text-sm">
-                {recentStaff.map((s) => (
-                  <li key={s.id} className="flex justify-between border-b last:border-0 pb-2">
-                    <span className="font-medium">
-                      {s.user.lastName} {s.user.firstName}
-                    </span>
-                    <span className="text-muted-foreground capitalize">
-                      {s.user.role.toLowerCase()} · {s.user.email}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+        {canSeeStaff && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Recent staff</CardTitle>
+              <Link href="/dashboard/staff" className="text-sm text-primary">
+                View all
+              </Link>
+            </CardHeader>
+            <CardContent>
+              {recentStaff.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No staff yet. Open Staff and add a teacher.
+                </p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {recentStaff.map((s) => (
+                    <li key={s.id} className="flex justify-between border-b last:border-0 pb-2">
+                      <span className="font-medium">
+                        {s.user.lastName} {s.user.firstName}
+                      </span>
+                      <span className="text-muted-foreground capitalize">
+                        {s.user.role.toLowerCase()} · {s.user.email}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
