@@ -6,6 +6,27 @@ import { AttendanceStatus, NotificationType, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 // ─────────────────────────────────────────────
+// HELPERS — scope a teacher to their own class(es)
+// ─────────────────────────────────────────────
+
+async function getTeacherAllowedClassIds(userId: string): Promise<string[]> {
+  const staff = await db.staff.findUnique({
+    where: { userId },
+    include: {
+      formClasses: { select: { id: true } },
+      teaching: { select: { classId: true } },
+    },
+  });
+
+  if (!staff) return [];
+
+  const ids = new Set<string>();
+  staff.formClasses.forEach((c) => ids.add(c.id));
+  staff.teaching.forEach((t) => ids.add(t.classId));
+  return Array.from(ids);
+}
+
+// ─────────────────────────────────────────────
 // STUDENT ATTENDANCE
 // ─────────────────────────────────────────────
 
@@ -21,6 +42,17 @@ export async function markStudentAttendance(data: {
   const allowedRoles: Role[] = ["ADMIN", "TEACHER"];
   if (!allowedRoles.includes(session.user.role)) {
     throw new Error("You do not have permission to mark attendance");
+  }
+
+  if (session.user.role === "TEACHER") {
+    const student = await db.student.findUnique({
+      where: { id: data.studentId },
+      select: { classId: true },
+    });
+    const allowedIds = await getTeacherAllowedClassIds(session.user.id);
+    if (!student?.classId || !allowedIds.includes(student.classId)) {
+      throw new Error("You can only mark attendance for students in your own class");
+    }
   }
 
   const attendanceDate = new Date(data.date);
@@ -131,6 +163,13 @@ export async function bulkMarkStudentAttendance(data: {
   const allowedRoles: Role[] = ["ADMIN", "TEACHER"];
   if (!allowedRoles.includes(session.user.role)) {
     throw new Error("You do not have permission");
+  }
+
+  if (session.user.role === "TEACHER") {
+    const allowedIds = await getTeacherAllowedClassIds(session.user.id);
+    if (!allowedIds.includes(data.classId)) {
+      throw new Error("You can only mark attendance for your own class");
+    }
   }
 
   const attendanceDate = new Date(data.date);
@@ -365,13 +404,29 @@ export async function getStudentsForAttendance(classId?: string, date?: string) 
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
+  let effectiveClassIds: string[] | null = null; // null = no restriction
+
+  if (session.user.role === "TEACHER") {
+    const allowed = await getTeacherAllowedClassIds(session.user.id);
+    if (classId) {
+      if (!allowed.includes(classId)) {
+        throw new Error("You can only view your own class");
+      }
+      effectiveClassIds = [classId];
+    } else {
+      effectiveClassIds = allowed; // may be [] if unassigned
+    }
+  } else if (classId) {
+    effectiveClassIds = [classId];
+  }
+
   const attendanceDate = date ? new Date(date) : new Date();
   attendanceDate.setHours(0, 0, 0, 0);
 
   const students = await db.student.findMany({
     where: {
       status: "ACTIVE",
-      ...(classId ? { classId } : {}),
+      ...(effectiveClassIds ? { classId: { in: effectiveClassIds } } : {}),
     },
     include: {
       class: true,
@@ -428,4 +483,25 @@ export async function getClasses() {
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
+}
+
+export async function getClassesForAttendanceUser() {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+
+  if (session.user.role === "ADMIN") {
+    return getClasses();
+  }
+
+  if (session.user.role === "TEACHER") {
+    const allowedIds = await getTeacherAllowedClassIds(session.user.id);
+    if (allowedIds.length === 0) return [];
+    return db.class.findMany({
+      where: { id: { in: allowedIds } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+  }
+
+  return [];
 }
