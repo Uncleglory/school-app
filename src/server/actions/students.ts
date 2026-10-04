@@ -16,6 +16,25 @@ async function requireStaff() {
   return session;
 }
 
+// A teacher may only see students in class(es) they are the form teacher
+// of, or where they teach a subject. An unassigned teacher sees none.
+async function getTeacherAllowedClassIds(userId: string): Promise<string[]> {
+  const staff = await db.staff.findUnique({
+    where: { userId },
+    include: {
+      formClasses: { select: { id: true } },
+      teaching: { select: { classId: true } },
+    },
+  });
+
+  if (!staff) return [];
+
+  const ids = new Set<string>();
+  staff.formClasses.forEach((c) => ids.add(c.id));
+  staff.teaching.forEach((t) => ids.add(t.classId));
+  return Array.from(ids);
+}
+
 // Only safe user fields: never include the password hash
 const SAFE_USER = {
   select: {
@@ -31,11 +50,27 @@ const SAFE_USER = {
 } as const;
 
 export async function getStudents(filters?: { classId?: string; status?: StudentStatus; search?: string }) {
-  await requireStaff();
+  const session = await requireStaff();
+
+  let effectiveClassIds: string[] | null = null; // null = no restriction
+
+  if (session.user.role === "TEACHER") {
+    const allowed = await getTeacherAllowedClassIds(session.user.id);
+    if (filters?.classId) {
+      if (!allowed.includes(filters.classId)) {
+        throw new Error("You can only view students in your own class");
+      }
+      effectiveClassIds = [filters.classId];
+    } else {
+      effectiveClassIds = allowed; // [] if the teacher isn't assigned to any class
+    }
+  } else if (filters?.classId) {
+    effectiveClassIds = [filters.classId];
+  }
 
   return db.student.findMany({
     where: {
-      ...(filters?.classId ? { classId: filters.classId } : {}),
+      ...(effectiveClassIds ? { classId: { in: effectiveClassIds } } : {}),
       ...(filters?.status ? { status: filters.status } : {}),
       ...(filters?.search
         ? {
@@ -56,7 +91,15 @@ export async function getStudents(filters?: { classId?: string; status?: Student
 }
 
 export async function getStudentById(id: string) {
-  await requireStaff();
+  const session = await requireStaff();
+
+  if (session.user.role === "TEACHER") {
+    const student = await db.student.findUnique({ where: { id }, select: { classId: true } });
+    const allowed = await getTeacherAllowedClassIds(session.user.id);
+    if (!student?.classId || !allowed.includes(student.classId)) {
+      throw new Error("You can only view students in your own class");
+    }
+  }
 
   return db.student.findUnique({
     where: { id },
