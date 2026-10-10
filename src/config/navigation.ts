@@ -13,6 +13,7 @@ import {
   BarChart3,
   School,
   KeyRound,
+  BookMarked,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 
@@ -49,6 +50,12 @@ export const navItems: NavItem[] = [
     title: "Classes",
     href: "/dashboard/classes",
     icon: School,
+    roles: ["ADMIN"],
+  },
+    {
+    title: "Subjects",
+    href: "/dashboard/subjects",
+    icon: BookMarked,
     roles: ["ADMIN"],
   },
   {
