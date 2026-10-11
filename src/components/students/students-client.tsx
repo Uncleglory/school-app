@@ -34,12 +34,42 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
   const [message, setMessage] = useState("");
   const canManage = ["ADMIN", "TEACHER"].includes(userRole);
 
-  const filtered = initial.filter(
-    (s) =>
-      s.firstName.toLowerCase().includes(search.toLowerCase()) ||
-      s.lastName.toLowerCase().includes(search.toLowerCase()) ||
-      s.admissionNo.toLowerCase().includes(search.toLowerCase())
+  // Classes in natural order (GS1, GS2 ... GS10), so they never look mixed up
+  const sortedClasses = [...classes].sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" })
   );
+
+  // "" = all students, "NONE" = students without a class, otherwise a class id.
+  // Starts on the first class so the list is never one big mixed pile.
+  const [classFilter, setClassFilter] = useState<string>(sortedClasses[0]?.id ?? "");
+
+  const countFor = (id: string) =>
+    initial.filter((s) => (id === "NONE" ? !s.class : s.class?.id === id)).length;
+
+  const filtered = initial.filter((s) => {
+    const inClass =
+      classFilter === ""
+        ? true
+        : classFilter === "NONE"
+        ? !s.class
+        : s.class?.id === classFilter;
+    const q = search.toLowerCase();
+    const matches =
+      s.firstName.toLowerCase().includes(q) ||
+      s.lastName.toLowerCase().includes(q) ||
+      s.admissionNo.toLowerCase().includes(q);
+    // While searching, look through everyone; otherwise stay inside the class
+    return search ? matches : inClass;
+  }).sort((a, b) =>
+    `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`)
+  );
+
+  const currentLabel =
+    classFilter === ""
+      ? "All students"
+      : classFilter === "NONE"
+      ? "No class yet"
+      : sortedClasses.find((c) => c.id === classFilter)?.name ?? "";
 
   function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -117,6 +147,56 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
         )}
       </div>
 
+      {/* Class by class: tap a class to see only its students */}
+      <div className="flex flex-wrap gap-2">
+        {sortedClasses.map((c) => (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => setClassFilter(c.id)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium",
+              classFilter === c.id
+                ? "bg-primary text-primary-foreground border-primary"
+                : "hover:bg-muted"
+            )}
+          >
+            {c.name} ({countFor(c.id)})
+          </button>
+        ))}
+        {countFor("NONE") > 0 && (
+          <button
+            type="button"
+            onClick={() => setClassFilter("NONE")}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium",
+              classFilter === "NONE"
+                ? "bg-primary text-primary-foreground border-primary"
+                : "hover:bg-muted"
+            )}
+          >
+            No class ({countFor("NONE")})
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setClassFilter("")}
+          className={cn(
+            "rounded-full border px-3 py-1 text-xs font-medium",
+            classFilter === ""
+              ? "bg-primary text-primary-foreground border-primary"
+              : "hover:bg-muted"
+          )}
+        >
+          All ({initial.length})
+        </button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {search
+          ? `Search results across all classes: ${filtered.length}`
+          : `${currentLabel}: ${filtered.length} student${filtered.length === 1 ? "" : "s"}`}
+      </p>
+
       {showForm && canManage && (
         <Card>
           <CardHeader><CardTitle className="text-base">New Student</CardTitle></CardHeader>
@@ -152,9 +232,13 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
               </div>
               <div className="space-y-1.5">
                 <Label>Class</Label>
-                <select name="classId" className="flex h-9 w-full rounded-md border px-3 text-sm">
+                <select
+                  name="classId"
+                  defaultValue={classFilter !== "" && classFilter !== "NONE" ? classFilter : ""}
+                  className="flex h-9 w-full rounded-md border px-3 text-sm"
+                >
                   <option value="">Unassigned</option>
-                  {classes.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  {sortedClasses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div className="space-y-1.5 sm:col-span-2">
