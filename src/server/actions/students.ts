@@ -113,6 +113,81 @@ export async function getStudentById(id: string) {
   });
 }
 
+// Bills a student for the fees their class already pays.
+// A fee is only used if it is set to auto-generate AND invoices for it have
+// already been generated for this student's class (so unreleased fees, such as
+// next term's, are never billed by surprise). Students who already have an
+// invoice for a fee are skipped, so running this twice is safe.
+async function autoInvoiceStudent(studentId: string): Promise<number> {
+  try {
+    const student = await db.student.findUnique({
+      where: { id: studentId },
+      select: { id: true, classId: true, status: true },
+    });
+    if (!student || !student.classId || student.status !== "ACTIVE") return 0;
+
+    const structures = await db.feeStructure.findMany({
+      where: {
+        autoGenerate: true,
+        OR: [
+          { classId: student.classId },
+          { classId: null, invoices: { some: { student: { classId: student.classId } } } },
+        ],
+        invoices: { some: {} },
+      },
+    });
+    if (structures.length === 0) return 0;
+
+    const already = await db.invoice.findMany({
+      where: {
+        studentId: student.id,
+        feeStructureId: { in: structures.map((s) => s.id) },
+      },
+      select: { feeStructureId: true },
+    });
+    const have = new Set(already.map((i) => i.feeStructureId));
+
+    const year = new Date().getFullYear();
+    const prefix = `INV-${year}-`;
+    const last = await db.invoice.findFirst({
+      where: { number: { startsWith: prefix } },
+      orderBy: { number: "desc" },
+      select: { number: true },
+    });
+    let sequence = last ? parseInt(last.number.slice(prefix.length), 10) || 0 : 0;
+
+    let created = 0;
+    for (const s of structures) {
+      if (have.has(s.id)) continue;
+      sequence += 1;
+      await db.invoice.create({
+        data: {
+          number: `${prefix}${String(sequence).padStart(5, "0")}`,
+          studentId: student.id,
+          feeStructureId: s.id,
+          termId: s.termId,
+          description: s.name,
+          amount: s.amount,
+          amountPaid: 0,
+          status: "UNPAID",
+          dueDate: s.dueDate,
+        },
+      });
+      created++;
+    }
+
+    if (created > 0) {
+      revalidatePath("/dashboard/fees");
+      revalidatePath("/dashboard");
+    }
+    return created;
+  } catch (err) {
+    // Billing must never stop a student from being saved.
+    console.error("Auto-invoice failed for student", studentId, err);
+    return 0;
+  }
+}
+
 export async function createStudent(data: {
   admissionNo: string;
   firstName: string;
@@ -144,6 +219,8 @@ export async function createStudent(data: {
       status: "ACTIVE",
     },
   });
+
+  if (student.classId) await autoInvoiceStudent(student.id);
 
   revalidatePath("/dashboard/students");
   return student;
@@ -180,6 +257,11 @@ export async function updateStudent(
       ...(data.status !== undefined && { status: data.status }),
     },
   });
+
+  // New class or re-activated student: bill the fees of their class.
+  if (data.classId !== undefined || data.status !== undefined) {
+    await autoInvoiceStudent(student.id);
+  }
 
   revalidatePath("/dashboard/students");
   revalidatePath(`/dashboard/students/${id}`);
