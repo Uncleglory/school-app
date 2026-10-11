@@ -260,7 +260,7 @@ export default function RecoverMaterialsPage() {
                         disabled={f.linked || isPending}
                       />
                       <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {f.pathname} 路 {formatSize(f.size)} 路{" "}
+                        {f.pathname} · {formatSize(f.size)} ·{" "}
                         {new Date(f.uploadedAt).toLocaleDateString()}
                       </p>
                     </div>
@@ -297,3 +297,4 @@ export default function RecoverMaterialsPage() {
     </div>
   );
 }
+
