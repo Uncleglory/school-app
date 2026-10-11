@@ -3,7 +3,7 @@
 --
 -- STEP 1 (optional, but do it if anything looks wrong): run this alone and check your class names.
 --   SELECT "name" FROM "Class" ORDER BY "name";
--- The script recognises: Creche/Crèche, KG1, KG2, Nursery 1, Nursery 2, Primary 1-5, GS1-GS3, SS1-SS3
+-- The script recognises: Creche/Crèche, KG1, KG2, NOST1/NOST2 (or Nursery 1/2), Primary 1-5, JS1-JS3 (or GS1-GS3), SS1-SS3
 -- (spaces, capitals and extra letters such as "Primary 1A" are fine).
 --
 -- STEP 2: run everything below in one go.
@@ -64,7 +64,7 @@ WITH v(title, descr, type, topic, source, url, subj, levels) AS (VALUES
   ('Oak National Academy', 'Free full video lessons with slides and worksheets for most subjects.', 'VIDEO', 'All subjects', 'Oak National Academy', 'https://www.thenational.academy', NULL, 'pri,js,ss'),
 
   -- ───────── Nigerian exam preparation ─────────
-  ('SchoolNGR Classroom: past questions', 'Free past questions for BECE, WAEC, NECO, JAMB and Post-UTME across many subjects.', 'EXAM_PREP', 'Past questions', 'SchoolNGR', 'https://www.schoolngr.com/classroom', NULL, 'gs3,ss'),
+  ('SchoolNGR Classroom: past questions', 'Free past questions for BECE, WAEC, NECO, JAMB and Post-UTME across many subjects.', 'EXAM_PREP', 'Past questions', 'SchoolNGR', 'https://www.schoolngr.com/classroom', NULL, 'gs3,js3,ss'),
   ('WAEC Nigeria: e-Learning and exam information', 'Official WAEC site: study guides, exam registration and results.', 'EXAM_PREP', 'WAEC preparation', 'WAEC Nigeria', 'https://www.waeconline.org.ng', NULL, 'ss'),
   ('JAMB: official site and UTME syllabus', 'Official JAMB site with the syllabus and exam information for UTME candidates.', 'EXAM_PREP', 'JAMB preparation', 'JAMB', 'https://www.jamb.gov.ng', NULL, 'ss2,ss3')
 ),
@@ -73,15 +73,15 @@ cls AS (
   SELECT c."id",
          (regexp_match(
             regexp_replace(translate(lower(c."name"), 'èé', 'ee'), '[^a-z0-9]', '', 'g'),
-            '^(creche|kg1|kg2|nursery1|nursery2|primary[1-5]|gs[1-3]|ss[1-3])'
+            '^(creche|kg1|kg2|nursery1|nursery2|nost1|nost2|nostri1|nostri2|primary[1-5]|pry[1-5]|gs[1-3]|js[1-3]|ss[1-3])'
          ))[1] AS k
   FROM "Class" c
 ),
 cls2 AS (
   SELECT id, k,
-         CASE WHEN k IN ('creche','kg1','kg2','nursery1','nursery2') THEN 'ey'
-              WHEN k LIKE 'primary%' THEN 'pri'
-              WHEN k LIKE 'gs%'      THEN 'js'
+         CASE WHEN k IN ('creche','kg1','kg2') OR k LIKE 'nursery%' OR k LIKE 'nost%' THEN 'ey'
+              WHEN k LIKE 'primary%' OR k LIKE 'pry%' THEN 'pri'
+              WHEN k LIKE 'gs%' OR k LIKE 'js%' THEN 'js'
               ELSE 'ss' END AS g
   FROM cls WHERE k IS NOT NULL
 ),
