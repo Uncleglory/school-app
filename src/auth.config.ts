@@ -4,6 +4,7 @@ import type { NextAuthConfig } from "next-auth";
 const RESTRICTED_ROLES = ["STUDENT", "PARENT"];
 const RESTRICTED_ALLOWED_PREFIXES = [
   "/dashboard/materials",
+  "/dashboard/learning-library",
   "/dashboard/notifications",
 ];
 
@@ -46,7 +47,7 @@ export const authConfig = {
       if (isOnDashboard) {
         if (!isLoggedIn) return false; // Redirect to login
 
-        // Students and parents: Materials and Notifications only
+        // Students and parents: Materials, Learning Library and Notifications only
         if (role && RESTRICTED_ROLES.includes(role)) {
           if (!isAllowedForRestricted(pathname)) {
             return Response.redirect(
