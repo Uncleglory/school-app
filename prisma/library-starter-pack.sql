@@ -3,7 +3,7 @@
 --
 -- STEP 1 (optional, but do it if anything looks wrong): run this alone and check your class names.
 --   SELECT "name" FROM "Class" ORDER BY "name";
--- The script recognises: Creche/Crèche, KG1, KG2, Nursery 1/2 (also NUR1/NUR2, NOST1/NOST2), Primary 1-5, JS1-JS3 (or GS1-GS3), SS1-SS3
+-- The script recognises: Creche/Crèche, KG1, KG2, Nursery 1/2 (also NUR1/NUR2, NOST1/NOST2), Primary 1-5, JS1-JS3 (also GS1-3, JSS1-3), SS1-SS3 (also SSS1-3)
 -- (spaces, capitals and extra letters such as "Primary 1A" are fine).
 --
 -- STEP 2: run everything below in one go.
@@ -73,17 +73,24 @@ cls AS (
   SELECT c."id",
          (regexp_match(
             regexp_replace(translate(lower(c."name"), 'èé', 'ee'), '[^a-z0-9]', '', 'g'),
-            '^(creche|kg1|kg2|nursery1|nursery2|nur1|nur2|nost1|nost2|primary[1-5]|pry[1-5]|gs[1-3]|js[1-3]|ss[1-3])'
-         ))[1] AS k
+            '(creche|kg[12]|nursery[12]|nur[12]|nost[12]|primary[1-5]|pry[1-5]|juniorsecondary[1-3]|jss[1-3]|js[1-3]|gs[1-3]|seniorsecondary[1-3]|sss[1-3]|ss[1-3])'
+         ))[1] AS r
   FROM "Class" c
 ),
 cls2 AS (
-  SELECT id, k,
-         CASE WHEN k IN ('creche','kg1','kg2') OR k LIKE 'nur%' OR k LIKE 'nost%' THEN 'ey'
-              WHEN k LIKE 'primary%' OR k LIKE 'pry%' THEN 'pri'
-              WHEN k LIKE 'gs%' OR k LIKE 'js%' THEN 'js'
-              ELSE 'ss' END AS g
-  FROM cls WHERE k IS NOT NULL
+  SELECT id,
+         g,
+         CASE WHEN g = 'js' THEN 'js' || right(r, 1)
+              WHEN g = 'ss' THEN 'ss' || right(r, 1)
+              ELSE r END AS k
+  FROM (
+    SELECT id, r,
+           CASE WHEN r IN ('creche','kg1','kg2') OR r LIKE 'nur%' OR r LIKE 'nost%' THEN 'ey'
+                WHEN r LIKE 'primary%' OR r LIKE 'pry%' THEN 'pri'
+                WHEN r ~ '^(gs|js|jss|juniorsecondary)[1-3]$' THEN 'js'
+                ELSE 'ss' END AS g
+    FROM cls WHERE r IS NOT NULL
+  ) t
 ),
 -- Remove the earlier "all classes" copies of these same items (only rows with no class).
 del AS (
