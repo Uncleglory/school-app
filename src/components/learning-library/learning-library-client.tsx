@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { upload } from "@vercel/blob/client";
 import {
   createLibraryItem,
   deleteLibraryItem,
@@ -131,6 +132,9 @@ export function LearningLibraryClient({
   const [fSource, setFSource] = useState("");
   const [fUrl, setFUrl] = useState("");
   const [fDescription, setFDescription] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [uploadedName, setUploadedName] = useState("");
 
   const subjectKeyOf = (i: LibraryItem) => i.subject?.id ?? GENERAL;
   const subjectNameOf = (i: LibraryItem) => i.subject?.name ?? "General";
@@ -233,6 +237,33 @@ export function LearningLibraryClient({
     setFSource("");
     setFUrl("");
     setFDescription("");
+    setUploadedName("");
+    setProgress(0);
+  }
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    setProgress(0);
+    setMessage("");
+    try {
+      const blob = await upload(`library/${file.name}`, file, {
+        access: "public",
+        handleUploadUrl: "/api/upload",
+        multipart: file.size > 5 * 1024 * 1024,
+        onUploadProgress: ({ percentage }) => setProgress(Math.round(percentage)),
+      });
+      setFUrl(blob.url);
+      setUploadedName(file.name);
+      if (!fTitle.trim()) setFTitle(file.name.replace(/\.[^/.]+$/, ""));
+      if (!fSource.trim()) setFSource("Glory Schools");
+      if (file.type.startsWith("video/")) setFType("VIDEO");
+      else if (file.type.startsWith("audio/")) setFType("AUDIO");
+      else if (file.type.startsWith("image/")) setFType("PICTURE");
+    } catch (err: any) {
+      setMessage(err?.message || "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
   function handleCreate(e: React.FormEvent<HTMLFormElement>) {
@@ -492,6 +523,26 @@ export function LearningLibraryClient({
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Or upload your own file (notes, PDF, Word, video, audio, picture)</Label>
+                  <Input
+                    type="file"
+                    disabled={uploading}
+                    accept="video/*,audio/*,image/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.zip"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFile(file);
+                    }}
+                  />
+                  {uploading && (
+                    <p className="text-xs text-muted-foreground">Uploading... {progress}%</p>
+                  )}
+                  {!uploading && uploadedName && (
+                    <p className="text-xs text-emerald-600">
+                      Uploaded: {uploadedName}. The link above is filled in. Now tap Save.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
                   <Label>Short description (optional)</Label>
                   <Input
                     value={fDescription}
@@ -501,11 +552,11 @@ export function LearningLibraryClient({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Add links to websites and videos. Only upload or link material
+                Add a link, or upload your own file. Only upload or link material
                 that Glory Schools owns or has permission to share.
               </p>
               <div className="flex gap-2">
-                <Button type="submit" disabled={isPending}>
+                <Button type="submit" disabled={isPending || uploading}>
                   {isPending ? "Saving..." : "Save"}
                 </Button>
                 <Button

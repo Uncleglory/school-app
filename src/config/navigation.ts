@@ -93,7 +93,7 @@ export const navItems: NavItem[] = [
     title: "Reports",
     href: "/dashboard/reports",
     icon: BarChart3,
-    roles: ["ADMIN", "ACCOUNTANT"],
+    roles: ["ADMIN"],
   },
   {
     title: "Library",
