@@ -117,3 +117,4 @@ export async function restoreMaterials(
   revalidatePath("/dashboard/recover-materials");
 
   return { created, skipped };
+}
