@@ -66,6 +66,19 @@ enum MaterialType {
   OTHER
 }
 
+enum LibraryItemType {
+  VIDEO
+  AUDIO
+  NOTES
+  TEXTBOOK
+  STORYBOOK
+  WORKSHEET
+  QUIZ
+  PICTURE
+  PRACTICAL
+  EXAM_PREP
+}
+
 enum LoanStatus {
   ACTIVE
   RETURNED
@@ -103,6 +116,7 @@ model User {
   parent            Parent?
   notifications     Notification[]
   materials         TeachingMaterial[]
+  libraryItems      LibraryItem[]
   paymentsReceived  Payment[]
   loans             BookLoan[]
   markedAttendances StudentAttendance[] @relation("MarkedBy")
@@ -150,6 +164,7 @@ model Class {
   students      Student[]
   subjects      ClassSubject[]
   materials     TeachingMaterial[]
+  libraryItems  LibraryItem[]
   feeStructures FeeStructure[]
 }
 
@@ -165,9 +180,10 @@ model Subject {
   code  String       @unique
   level SubjectLevel @default(BOTH)
 
-  classes   ClassSubject[]
-  materials TeachingMaterial[]
-  results   ExamResult[]
+  classes      ClassSubject[]
+  materials    TeachingMaterial[]
+  libraryItems LibraryItem[]
+  results      ExamResult[]
 }
 model ClassSubject {
   id        String  @id @default(cuid())
@@ -383,6 +399,27 @@ model TeachingMaterial {
   uploadedBy        User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
   visibleToStudents Boolean      @default(true)
   createdAt         DateTime     @default(now())
+}
+
+// Learning Library: links and files organised by class, subject and topic.
+// classId empty = shown to every class.
+model LibraryItem {
+  id          String          @id @default(cuid())
+  title       String
+  description String?
+  type        LibraryItemType @default(NOTES)
+  topic       String
+  sourceName  String? // "Khan Academy", "eLearn Nigeria", "Glory Schools"
+  url         String
+  classId     String?
+  class       Class?          @relation(fields: [classId], references: [id], onDelete: SetNull)
+  subjectId   String?
+  subject     Subject?        @relation(fields: [subjectId], references: [id], onDelete: SetNull)
+  addedById   String
+  addedBy     User            @relation(fields: [addedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now())
+
+  @@index([classId, subjectId])
 }
 
 // ───────── NOTIFICATIONS / ALERTS ─────────
