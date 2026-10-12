@@ -80,7 +80,7 @@ const TYPES: {
   { value: "QUIZ", label: "Quiz", icon: HelpCircle },
   { value: "PICTURE", label: "Picture / Chart", icon: ImageIcon },
   { value: "PRACTICAL", label: "Practical", icon: FlaskConical },
-  { value: "EXAM_PREP", label: "Exam Prep", icon: Trophy },
+  { value: "EXAM_PREP", label: "Past Questions", icon: Trophy },
 ];
 
 const TYPE_MAP = Object.fromEntries(TYPES.map((t) => [t.value, t]));
@@ -100,6 +100,28 @@ const SOURCE_SUGGESTIONS = [
 
 const GENERAL = "__general__";
 
+type Section = "early" | "primary" | "junior" | "senior";
+
+const SECTIONS: { value: Section; label: string; hint: string }[] = [
+  { value: "early", label: "Lower Classes", hint: "Crèche, KG, Nursery" },
+  { value: "primary", label: "Primary", hint: "Primary 1 to 5" },
+  { value: "junior", label: "Junior Secondary", hint: "JS 1 to 3" },
+  { value: "senior", label: "Senior Secondary", hint: "SS 1 to 3" },
+];
+
+// Works out which section a class belongs to, whatever spelling was used
+function sectionOf(className: string): Section | null {
+  const n = className
+    .toLowerCase()
+    .replace(/[èé]/g, "e")
+    .replace(/[^a-z0-9]/g, "");
+  if (/(creche|kg[12]|nursery|nur[12]|nost[12])/.test(n)) return "early";
+  if (/(primary|pry)[1-5]/.test(n)) return "primary";
+  if (/(juniorsecondary|jss|js|gs)[1-3]/.test(n)) return "junior";
+  if (/(seniorsecondary|sss|ss)[1-3]/.test(n)) return "senior";
+  return null;
+}
+
 const selectClass = "flex h-9 w-full rounded-md border bg-white px-3 text-sm";
 
 export function LearningLibraryClient({
@@ -115,6 +137,7 @@ export function LearningLibraryClient({
   const isStaff = userRole === "ADMIN" || userRole === "TEACHER";
 
   // Browsing
+  const [section, setSection] = useState<Section | "">("");
   const [classFilter, setClassFilter] = useState("");
   const [subjectKey, setSubjectKey] = useState<string | null>(null);
   const [topic, setTopic] = useState<string | null>(null);
@@ -139,19 +162,59 @@ export function LearningLibraryClient({
   const subjectKeyOf = (i: LibraryItem) => i.subject?.id ?? GENERAL;
   const subjectNameOf = (i: LibraryItem) => i.subject?.name ?? "General";
 
-  // Class filter (staff) and type filter apply everywhere
-  const filtered = useMemo(
-    () =>
-      items.filter((i) => {
-        if (classFilter) {
-          // "All classes" items are shown in every class
-          if (i.class && i.class.id !== classFilter) return false;
-        }
-        if (typeFilter && i.type !== typeFilter) return false;
-        return true;
-      }),
-    [items, classFilter, typeFilter]
+  // Section, class and type filters apply everywhere.
+  // When no single class is chosen, the same material that was added to
+  // several classes is shown only once.
+  const filtered = useMemo(() => {
+    const seen = new Set<string>();
+    return items.filter((i) => {
+      // "All classes" items are shown in every section and class
+      if (section && i.class && sectionOf(i.class.name) !== section) return false;
+      if (classFilter && i.class && i.class.id !== classFilter) return false;
+      if (typeFilter && i.type !== typeFilter) return false;
+      if (!classFilter) {
+        const key = `${i.title}|${i.url}|${i.subject?.id ?? ""}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+      }
+      return true;
+    });
+  }, [items, section, classFilter, typeFilter]);
+
+  const sectionCounts = useMemo(() => {
+    const sets: Record<Section, Set<string>> = {
+      early: new Set(),
+      primary: new Set(),
+      junior: new Set(),
+      senior: new Set(),
+    };
+    items.forEach((i) => {
+      if (!i.class) return;
+      const s = sectionOf(i.class.name);
+      if (s) sets[s].add(`${i.title}|${i.url}|${i.subject?.id ?? ""}`);
+    });
+    return {
+      early: sets.early.size,
+      primary: sets.primary.size,
+      junior: sets.junior.size,
+      senior: sets.senior.size,
+    };
+  }, [items]);
+
+  const visibleClasses = useMemo(
+    () => classes.filter((c) => !section || sectionOf(c.name) === section),
+    [classes, section]
   );
+
+  function chooseSection(next: Section | "") {
+    setSection(next);
+    setSubjectKey(null);
+    setTopic(null);
+    if (next && classFilter) {
+      const current = classes.find((c) => c.id === classFilter);
+      if (!current || sectionOf(current.name) !== next) setClassFilter("");
+    }
+  }
 
   const query = search.trim().toLowerCase();
   const searching = query.length > 0;
@@ -364,6 +427,38 @@ export function LearningLibraryClient({
         </div>
       )}
 
+      {/* Sections */}
+      {isStaff && (
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-5">
+          <button
+            onClick={() => chooseSection("")}
+            className={`rounded-xl border p-3 text-left shadow-sm hover:bg-accent ${
+              section === "" ? "border-primary bg-accent" : "bg-card"
+            }`}
+          >
+            <p className="font-medium">All sections</p>
+            <p className="text-xs text-muted-foreground">Everything</p>
+          </button>
+          {SECTIONS.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => chooseSection(s.value)}
+              className={`rounded-xl border p-3 text-left shadow-sm hover:bg-accent ${
+                section === s.value ? "border-primary bg-accent" : "bg-card"
+              }`}
+            >
+              <p className="font-medium">
+                {s.label}{" "}
+                <span className="text-xs font-normal text-muted-foreground">
+                  ({sectionCounts[s.value]})
+                </span>
+              </p>
+              <p className="text-xs text-muted-foreground">{s.hint}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -385,8 +480,12 @@ export function LearningLibraryClient({
             }}
             className={`${selectClass} sm:w-48`}
           >
-            <option value="">All classes</option>
-            {classes.map((c) => (
+            <option value="">
+              {section
+                ? `All ${SECTIONS.find((s) => s.value === section)?.label} classes`
+                : "All classes"}
+            </option>
+            {visibleClasses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
@@ -461,11 +560,28 @@ export function LearningLibraryClient({
                     className={selectClass}
                   >
                     <option value="">All classes</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
+                    {SECTIONS.map((s) => (
+                      <optgroup key={s.value} label={s.label}>
+                        {classes
+                          .filter((c) => sectionOf(c.name) === s.value)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                      </optgroup>
                     ))}
+                    {classes.some((c) => sectionOf(c.name) === null) && (
+                      <optgroup label="Other">
+                        {classes
+                          .filter((c) => sectionOf(c.name) === null)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.name}
+                            </option>
+                          ))}
+                      </optgroup>
+                    )}
                   </select>
                 </div>
                 <div className="space-y-1.5">

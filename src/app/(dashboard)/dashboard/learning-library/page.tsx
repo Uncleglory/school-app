@@ -27,7 +27,7 @@ export default async function LearningLibraryPage() {
         <h1 className="text-2xl font-bold tracking-tight">Learning Library</h1>
         <p className="text-muted-foreground">
           {isStaff
-            ? "Videos, notes, stories, worksheets and quizzes, organised by class, subject and topic."
+            ? "Videos, notes, stories, worksheets and past questions, organised by section (Lower Classes, Primary, Junior Secondary, Senior Secondary), then subject and topic."
             : studentClass
               ? `Learning materials for ${studentClass}.`
               : "Learning materials for your class."}
