@@ -15,6 +15,7 @@ import {
   KeyRound,
   BookMarked,
   Library,
+  Trophy,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 
@@ -87,6 +88,12 @@ export const navItems: NavItem[] = [
     title: "Exams",
     href: "/dashboard/exams",
     icon: ClipboardList,
+    roles: ["ADMIN", "TEACHER"],
+  },
+  {
+    title: "Results",
+    href: "/dashboard/results",
+    icon: Trophy,
     roles: ["ADMIN", "TEACHER"],
   },
   {

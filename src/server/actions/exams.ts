@@ -188,3 +188,116 @@ export async function getStudentsByClass(classId?: string) {
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 }
+
+// ─────────────────────────────────────────────
+// CLASS RESULTS (enter a whole class at once)
+// ─────────────────────────────────────────────
+
+export async function getClassResultsGrid(examId: string, classId: string) {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
+  const [exam, klass, students, classSubjects, existing] = await Promise.all([
+    db.exam.findUnique({ where: { id: examId }, select: { id: true, name: true } }),
+    db.class.findUnique({ where: { id: classId }, select: { id: true, name: true } }),
+    db.student.findMany({
+      where: { classId, status: "ACTIVE" },
+      select: { id: true, firstName: true, lastName: true, admissionNo: true },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+    db.classSubject.findMany({
+      where: { classId },
+      include: { subject: { select: { id: true, name: true } } },
+    }),
+    db.examResult.findMany({
+      where: { examId, student: { classId } },
+      select: { studentId: true, subjectId: true, score: true },
+    }),
+  ]);
+
+  if (!exam || !klass) throw new Error("Exam or class not found");
+
+  // Use the subjects set up for this class; if none are set up, offer every subject
+  let subjects = classSubjects.map((cs) => cs.subject);
+  if (subjects.length === 0) {
+    subjects = await db.subject.findMany({
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+  subjects.sort((a, b) => a.name.localeCompare(b.name));
+
+  const scores: Record<string, number> = {};
+  for (const r of existing) {
+    scores[`${r.studentId}:${r.subjectId}`] = Number(r.score);
+  }
+
+  return {
+    exam,
+    className: klass.name,
+    students: students.map((s) => ({
+      id: s.id,
+      name: `${s.lastName} ${s.firstName}`,
+      admissionNo: s.admissionNo,
+    })),
+    subjects,
+    scores,
+  };
+}
+
+export async function saveClassScores(data: {
+  examId: string;
+  entries: { studentId: string; subjectId: string; score: number }[];
+}) {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
+  const entries = data.entries.filter(
+    (e) => Number.isFinite(e.score) && e.score >= 0 && e.score <= 100
+  );
+  if (entries.length !== data.entries.length) {
+    throw new Error("Every score must be a number from 0 to 100");
+  }
+
+  const CHUNK = 100;
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    const chunk = entries.slice(i, i + CHUNK);
+    await db.$transaction(
+      chunk.map((e) =>
+        db.examResult.upsert({
+          where: {
+            examId_studentId_subjectId: {
+              examId: data.examId,
+              studentId: e.studentId,
+              subjectId: e.subjectId,
+            },
+          },
+          update: {
+            score: new Decimal(e.score),
+            maxScore: new Decimal(100),
+            grade: calculateGrade(e.score, 100),
+            enteredById: session.user.id,
+          },
+          create: {
+            examId: data.examId,
+            studentId: e.studentId,
+            subjectId: e.subjectId,
+            score: new Decimal(e.score),
+            maxScore: new Decimal(100),
+            grade: calculateGrade(e.score, 100),
+            enteredById: session.user.id,
+          },
+        })
+      )
+    );
+  }
+
+  revalidatePath("/dashboard/exams");
+  revalidatePath("/dashboard/results");
+  revalidatePath("/dashboard/reports");
+  return { saved: entries.length };
+}
