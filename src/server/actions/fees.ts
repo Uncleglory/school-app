@@ -391,7 +391,10 @@ export async function getTerms(academicYearId?: string) {
 }
 
 export async function getFeeStats() {
-  await requireNotStudentOrParent();
+  const feeSession = await auth();
+  if (!feeSession?.user || !["ADMIN", "ACCOUNTANT"].includes(feeSession.user.role)) {
+    throw new Error("Unauthorized");
+  }
 
   const [totalInvoiced, totalPaid, unpaidCount, overdueCount] = await Promise.all([
     db.invoice.aggregate({ _sum: { amount: true } }),

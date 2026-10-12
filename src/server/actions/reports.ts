@@ -3,9 +3,17 @@
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 
-export async function getAttendanceReport(dateFrom: string, dateTo: string) {
+async function requireProprietor() {
   const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
+  if (!session?.user || session.user.role !== "ADMIN") {
+    throw new Error("Only the proprietor can view reports");
+  }
+  return session;
+}
+
+
+export async function getAttendanceReport(dateFrom: string, dateTo: string) {
+  await requireProprietor();
 
   const from = new Date(dateFrom);
   const to = new Date(dateTo);
@@ -31,8 +39,7 @@ export async function getAttendanceReport(dateFrom: string, dateTo: string) {
 }
 
 export async function getFeeCollectionReport() {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
+  await requireProprietor();
 
   const byStatus = await db.invoice.groupBy({
     by: ["status"],
@@ -55,8 +62,7 @@ export async function getFeeCollectionReport() {
 }
 
 export async function getAcademicPerformance(examId: string) {
-  const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
+  await requireProprietor();
 
   const results = await db.examResult.findMany({
     where: { examId },

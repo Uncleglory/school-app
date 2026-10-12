@@ -9,12 +9,34 @@ export async function getMaterials(filters?: { classId?: string; subjectId?: str
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  // Students/Parents only see visible materials
-  const onlyVisible = ["STUDENT", "PARENT"].includes(session.user.role);
+  // Students/Parents only see visible materials, and only for their own class
+  // (or their children's classes). Materials with no class are shown to everyone.
+  const role = session.user.role;
+  const onlyVisible = ["STUDENT", "PARENT"].includes(role);
+
+  let allowedClassIds: string[] | null = null;
+  if (role === "STUDENT") {
+    const student = await db.student.findUnique({
+      where: { userId: session.user.id },
+      select: { classId: true },
+    });
+    allowedClassIds = student?.classId ? [student.classId] : [];
+  } else if (role === "PARENT") {
+    const children = await db.parentStudent.findMany({
+      where: { parent: { userId: session.user.id } },
+      select: { student: { select: { classId: true } } },
+    });
+    allowedClassIds = children
+      .map((c) => c.student.classId)
+      .filter((id): id is string => !!id);
+  }
 
   return db.teachingMaterial.findMany({
     where: {
       ...(onlyVisible ? { visibleToStudents: true } : {}),
+      ...(allowedClassIds
+        ? { OR: [{ classId: null }, { classId: { in: allowedClassIds } }] }
+        : {}),
       ...(filters?.classId ? { classId: filters.classId } : {}),
       ...(filters?.subjectId ? { subjectId: filters.subjectId } : {}),
     },
