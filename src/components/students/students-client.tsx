@@ -17,6 +17,7 @@ type Student = {
   otherName: string | null;
   gender: string;
   dateOfBirth: string;
+  address?: string | null;
   status: string;
   class: { id: string; name: string } | null;
 };
@@ -32,6 +33,7 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
   const [showForm, setShowForm] = useState(false);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
+  const [editing, setEditing] = useState<Student | null>(null);
   const canManage = ["ADMIN", "TEACHER"].includes(userRole);
 
   // Classes in natural order (GS1, GS2 ... GS10), so they never look mixed up
@@ -90,6 +92,50 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
         setMessage("Student created successfully");
       } catch (err: any) {
         setMessage(err.message || "Failed");
+      }
+    });
+  }
+
+  function handleEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!editing) return;
+    const fd = new FormData(e.currentTarget);
+    const firstName = ((fd.get("firstName") as string) || "").trim();
+    const lastName = ((fd.get("lastName") as string) || "").trim();
+    const otherName = ((fd.get("otherName") as string) || "").trim();
+    const gender = fd.get("gender") as string;
+    const dateOfBirth = fd.get("dateOfBirth") as string;
+    const address = ((fd.get("address") as string) || "").trim();
+
+    if (!firstName || !lastName) {
+      setMessage("First name and last name cannot be empty");
+      return;
+    }
+
+    // Send only what changed, so a name fix never touches anything else
+    const changes: Parameters<typeof updateStudent>[1] = {};
+    if (firstName !== editing.firstName) changes.firstName = firstName;
+    if (lastName !== editing.lastName) changes.lastName = lastName;
+    if (otherName !== (editing.otherName ?? "")) changes.otherName = otherName;
+    if (gender !== editing.gender) changes.gender = gender as any;
+    if (dateOfBirth && dateOfBirth !== editing.dateOfBirth.slice(0, 10)) {
+      changes.dateOfBirth = dateOfBirth;
+    }
+    if (address !== (editing.address ?? "")) changes.address = address;
+
+    if (Object.keys(changes).length === 0) {
+      setEditing(null);
+      setMessage("No changes to save");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        await updateStudent(editing.id, changes);
+        setEditing(null);
+        setMessage("Student updated");
+      } catch (err: any) {
+        setMessage(err.message || "Failed to update student");
       }
     });
   }
@@ -254,6 +300,60 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
         </Card>
       )}
 
+      {editing && canManage && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              Edit Student <span className="font-mono text-xs text-muted-foreground">({editing.admissionNo})</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form
+              key={editing.id}
+              onSubmit={handleEdit}
+              className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              <div className="space-y-1.5">
+                <Label>First Name</Label>
+                <Input name="firstName" required defaultValue={editing.firstName.trim()} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Last Name</Label>
+                <Input name="lastName" required defaultValue={editing.lastName.trim()} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Other Name</Label>
+                <Input name="otherName" defaultValue={(editing.otherName ?? "").trim()} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Gender</Label>
+                <select
+                  name="gender"
+                  defaultValue={editing.gender}
+                  className="flex h-9 w-full rounded-md border px-3 text-sm"
+                >
+                  <option value="MALE">Male</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="OTHER">Other</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Date of Birth</Label>
+                <Input name="dateOfBirth" type="date" defaultValue={editing.dateOfBirth.slice(0, 10)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Address</Label>
+                <Input name="address" defaultValue={editing.address ?? ""} />
+              </div>
+              <div className="sm:col-span-2 lg:col-span-3 flex gap-2">
+                <Button type="submit" disabled={isPending}>Save changes</Button>
+                <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="pt-4">
           <div className="overflow-x-auto">
@@ -282,6 +382,17 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
                     </td>
                     {canManage && (
                       <td className="py-3 text-right space-x-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7"
+                          onClick={() => {
+                            setEditing(s);
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                        >
+                          Edit
+                        </Button>
                         <select
                           className="h-7 rounded border text-xs px-1"
                           value={s.status}
