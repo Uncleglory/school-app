@@ -18,6 +18,9 @@ type Student = {
   gender: string;
   dateOfBirth: string;
   address?: string | null;
+  parentName?: string | null;
+  parentPhone?: string | null;
+  parentEmail?: string | null;
   status: string;
   class: { id: string; name: string } | null;
 };
@@ -87,6 +90,9 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
           dateOfBirth: fd.get("dateOfBirth") as string,
           address: (fd.get("address") as string) || undefined,
           classId: (fd.get("classId") as string) || undefined,
+          parentName: (fd.get("parentName") as string) || undefined,
+          parentPhone: (fd.get("parentPhone") as string) || undefined,
+          parentEmail: (fd.get("parentEmail") as string) || undefined,
         });
         setShowForm(false);
         setMessage("Student created successfully");
@@ -106,6 +112,9 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
     const gender = fd.get("gender") as string;
     const dateOfBirth = fd.get("dateOfBirth") as string;
     const address = ((fd.get("address") as string) || "").trim();
+    const parentName = ((fd.get("parentName") as string) || "").trim();
+    const parentPhone = ((fd.get("parentPhone") as string) || "").trim();
+    const parentEmail = ((fd.get("parentEmail") as string) || "").trim();
 
     if (!firstName || !lastName) {
       setMessage("First name and last name cannot be empty");
@@ -122,6 +131,9 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
       changes.dateOfBirth = dateOfBirth;
     }
     if (address !== (editing.address ?? "")) changes.address = address;
+    if (parentName !== (editing.parentName ?? "")) changes.parentName = parentName;
+    if (parentPhone !== (editing.parentPhone ?? "")) changes.parentPhone = parentPhone;
+    if (parentEmail !== (editing.parentEmail ?? "")) changes.parentEmail = parentEmail;
 
     if (Object.keys(changes).length === 0) {
       setEditing(null);
@@ -291,6 +303,21 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
                 <Label>Address</Label>
                 <Input name="address" />
               </div>
+              <div className="space-y-1.5">
+                <Label>Parent Name</Label>
+                <Input name="parentName" placeholder="Mr / Mrs ..." />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Parent Phone</Label>
+                <Input name="parentPhone" type="tel" inputMode="tel" placeholder="08012345678" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Parent Email</Label>
+                <Input name="parentEmail" type="email" placeholder="optional" />
+              </div>
+              <p className="sm:col-span-2 lg:col-span-3 text-xs text-muted-foreground">
+                The parent is alerted automatically when this student is marked absent or late.
+              </p>
               <div className="sm:col-span-2 lg:col-span-3 flex gap-2">
                 <Button type="submit" disabled={isPending}>Save</Button>
                 <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -345,6 +372,32 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
                 <Label>Address</Label>
                 <Input name="address" defaultValue={editing.address ?? ""} />
               </div>
+              <div className="space-y-1.5">
+                <Label>Parent Name</Label>
+                <Input name="parentName" defaultValue={editing.parentName ?? ""} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Parent Phone</Label>
+                <Input
+                  name="parentPhone"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="08012345678"
+                  defaultValue={editing.parentPhone ?? ""}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Parent Email</Label>
+                <Input
+                  name="parentEmail"
+                  type="email"
+                  placeholder="optional"
+                  defaultValue={editing.parentEmail ?? ""}
+                />
+              </div>
+              <p className="sm:col-span-2 lg:col-span-3 text-xs text-muted-foreground">
+                The parent is alerted automatically when this student is marked absent or late.
+              </p>
               <div className="sm:col-span-2 lg:col-span-3 flex gap-2">
                 <Button type="submit" disabled={isPending}>Save changes</Button>
                 <Button type="button" variant="outline" onClick={() => setEditing(null)}>Cancel</Button>

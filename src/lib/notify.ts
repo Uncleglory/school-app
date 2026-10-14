@@ -110,7 +110,38 @@ export async function notifyAbsence(opts: {
   status: string; // absent | late
   date: string;
   note?: string;
+  // true = message goes to a parent's phone/email saved on the student record.
+  // Those parents have no login, so the message has no dashboard link.
+  forParent?: boolean;
 }) {
+  if (opts.forParent) {
+    const school = process.env.SCHOOL_NAME || "Glory Schools";
+    const text = `${school}: ${opts.studentName} was marked ${opts.status} on ${opts.date}.${opts.note ? ` Note: ${opts.note}.` : ""} Please contact the school if this is unexpected.`;
+    const html = `
+      <div style="font-family:sans-serif;max-width:480px">
+        <h2 style="color:#1e293b">${school}</h2>
+        <p><strong>${opts.studentName}</strong> was marked <strong style="color:#dc2626">${opts.status}</strong> on ${opts.date}.</p>
+        ${opts.note ? `<p>Note: ${opts.note}</p>` : ""}
+        <p>Please contact the school if this is unexpected.</p>
+      </div>
+    `;
+    const sent = [];
+    if (opts.recipientEmail) {
+      sent.push(
+        await sendEmail({
+          to: opts.recipientEmail,
+          subject: `${school}: ${opts.studentName} marked ${opts.status}`,
+          html,
+          text,
+        })
+      );
+    }
+    if (opts.recipientPhone) {
+      sent.push(await sendSms({ to: opts.recipientPhone, message: text }));
+    }
+    return sent;
+  }
+
   const subject = `Attendance alert: ${opts.studentName} marked ${opts.status}`;
   const text = `${opts.studentName} was marked ${opts.status} on ${opts.date}.${opts.note ? ` Note: ${opts.note}` : ""}\n\nView details: ${APP_URL}/dashboard/attendance`;
   const html = `

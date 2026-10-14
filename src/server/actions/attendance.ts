@@ -57,6 +57,13 @@ export async function markStudentAttendance(data: {
 
   const attendanceDate = new Date(data.date);
 
+  // Remember what was saved before, so alerts only go out when the status really changes
+  const previous = await db.studentAttendance.findUnique({
+    where: { studentId_date: { studentId: data.studentId, date: attendanceDate } },
+    select: { status: true },
+  });
+  const statusChanged = !previous || previous.status !== data.status;
+
   const record = await db.studentAttendance.upsert({
     where: {
       studentId_date: {
@@ -144,6 +151,35 @@ export async function markStudentAttendance(data: {
         date: data.date,
         note: data.note,
       }).catch(() => {});
+    }
+
+    // 3. Alert the parent contact saved on the student record (no login needed).
+    // Skipped when the status did not change, so re-saving the register never
+    // sends the same SMS/email twice, and when it duplicates a linked parent account.
+    if (statusChanged) {
+      const digits = (p?: string | null) => (p ? p.replace(/\D/g, "").slice(-10) : "");
+      const accountEmails = new Set(
+        record.student.guardians.map((g) => (g.parent.user.email || "").toLowerCase())
+      );
+      const accountPhones = new Set(
+        record.student.guardians.map((g) => digits(g.parent.user.phone)).filter(Boolean)
+      );
+      const email = record.student.parentEmail?.trim().toLowerCase() || null;
+      const phone = record.student.parentPhone?.trim() || null;
+      const directEmail = email && !accountEmails.has(email) ? email : null;
+      const directPhone = phone && !accountPhones.has(digits(phone)) ? phone : null;
+
+      if (directEmail || directPhone) {
+        notifyAbsence({
+          recipientEmail: directEmail,
+          recipientPhone: directPhone,
+          studentName,
+          status: statusLabel,
+          date: data.date,
+          note: data.note,
+          forParent: true,
+        }).catch(() => {});
+      }
     }
   }
 
