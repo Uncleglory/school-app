@@ -228,6 +228,10 @@ model Student {
   dateOfBirth DateTime
   address     String?
   photoUrl    String?
+  // Parent/guardian contact, used for absence alerts (no login account needed)
+  parentName  String?
+  parentPhone String?
+  parentEmail String?
   classId     String?
   class       Class?        @relation(fields: [classId], references: [id])
   status      StudentStatus @default(ACTIVE)

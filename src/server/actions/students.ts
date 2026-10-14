@@ -197,6 +197,9 @@ export async function createStudent(data: {
   dateOfBirth: string;
   address?: string;
   classId?: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
 }) {
   const session = await auth();
   if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
@@ -216,6 +219,9 @@ export async function createStudent(data: {
       dateOfBirth: new Date(data.dateOfBirth),
       address: data.address || null,
       classId: data.classId || null,
+      parentName: data.parentName?.trim() || null,
+      parentPhone: data.parentPhone?.trim() || null,
+      parentEmail: data.parentEmail?.trim().toLowerCase() || null,
       status: "ACTIVE",
     },
   });
@@ -237,6 +243,9 @@ export async function updateStudent(
     address?: string;
     classId?: string | null;
     status?: StudentStatus;
+    parentName?: string;
+    parentPhone?: string;
+    parentEmail?: string;
   }
 ) {
   const session = await auth();
@@ -255,6 +264,11 @@ export async function updateStudent(
       ...(data.address !== undefined && { address: data.address || null }),
       ...(data.classId !== undefined && { classId: data.classId || null }),
       ...(data.status !== undefined && { status: data.status }),
+      ...(data.parentName !== undefined && { parentName: data.parentName.trim() || null }),
+      ...(data.parentPhone !== undefined && { parentPhone: data.parentPhone.trim() || null }),
+      ...(data.parentEmail !== undefined && {
+        parentEmail: data.parentEmail.trim().toLowerCase() || null,
+      }),
     },
   });
 
