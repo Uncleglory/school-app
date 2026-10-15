@@ -120,6 +120,15 @@ export function FeesSummary({ invoices }: { invoices: SummaryInvoice[] }) {
   }
   const debtorGroups = Array.from(debtorsByClass.entries()).sort((a, b) => byClass(a[0], b[0]));
 
+  // Everyone who has paid something (full or part), grouped by class
+  const payersByClass = new Map<string, Row[]>();
+  for (const r of rows.filter((x) => x.paid > 0)) {
+    const list = payersByClass.get(r.className) || [];
+    list.push(r);
+    payersByClass.set(r.className, list);
+  }
+  const payerGroups = Array.from(payersByClass.entries()).sort((a, b) => byClass(a[0], b[0]));
+
   return (
     <div className="space-y-4">
       {/* Three categories */}
@@ -242,6 +251,64 @@ export function FeesSummary({ invoices }: { invoices: SummaryInvoice[] }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Names of those who have paid, class by class */}
+      {payerGroups.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Who has paid</CardTitle>
+            <CardDescription>
+              Tap a class to see the students and how much each has paid. Part payers are included.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {payerGroups.map(([cls, list]) => (
+              <details key={cls} className="rounded-md border px-3 py-2">
+                <summary className="flex cursor-pointer items-center justify-between gap-2 text-sm font-medium">
+                  <span>
+                    {cls} ({list.length})
+                  </span>
+                  <span className="text-emerald-600">{formatCurrency(sum(list, (r) => r.paid))}</span>
+                </summary>
+                <table className="mt-2 w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="pb-1 font-medium">Student</th>
+                      <th className="pb-1 font-medium">Status</th>
+                      <th className="pb-1 font-medium text-right">Paid</th>
+                      <th className="pb-1 font-medium text-right">Still owing</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...list]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((r) => (
+                        <tr key={r.key} className="border-b last:border-0">
+                          <td className="py-1.5">{r.name}</td>
+                          <td className="py-1.5">
+                            <span
+                              className={
+                                r.state === "PAID"
+                                  ? "rounded bg-emerald-100 px-2 py-0.5 text-xs text-emerald-800"
+                                  : "rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800"
+                              }
+                            >
+                              {r.state === "PAID" ? "Fully paid" : "Part paid"}
+                            </span>
+                          </td>
+                          <td className="py-1.5 text-right font-medium">{formatCurrency(r.paid)}</td>
+                          <td className="py-1.5 text-right">
+                            {r.owing > 0 ? formatCurrency(r.owing) : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </details>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Names of debtors, class by class */}
       {debtorGroups.length > 0 && (
