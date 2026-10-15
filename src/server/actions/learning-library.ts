@@ -24,7 +24,7 @@ function cleanUrl(value: string) {
 }
 
 function isStaff(role?: string) {
-  return role === "ADMIN" || role === "TEACHER";
+  return ["ADMIN", "MANAGER", "TEACHER"].includes(role as string);
 }
 
 export async function getLearningLibrary() {

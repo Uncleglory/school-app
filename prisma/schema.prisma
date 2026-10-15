@@ -17,6 +17,7 @@ enum Role {
   PARENT
   LIBRARIAN
   ACCOUNTANT
+  MANAGER
 }
 
 enum Gender {

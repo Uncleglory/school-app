@@ -80,7 +80,7 @@ export default async function DashboardPage() {
       href: "/dashboard/students",
       icon: GraduationCap,
       color: "text-blue-600",
-      roles: ["ADMIN", "TEACHER"],
+      roles: ["ADMIN", "MANAGER", "TEACHER"],
     },
     {
       title: "Staff",
@@ -89,7 +89,7 @@ export default async function DashboardPage() {
       href: "/dashboard/staff",
       icon: Users,
       color: "text-emerald-600",
-      roles: ["ADMIN"],
+      roles: ["ADMIN", "MANAGER"],
     },
     {
       title: "Classes",
@@ -98,7 +98,7 @@ export default async function DashboardPage() {
       href: "/dashboard/classes",
       icon: School,
       color: "text-violet-600",
-      roles: ["ADMIN"],
+      roles: ["ADMIN", "MANAGER"],
     },
     {
       title: "Present today",
@@ -107,7 +107,7 @@ export default async function DashboardPage() {
       href: "/dashboard/attendance",
       icon: CalendarCheck,
       color: "text-amber-600",
-      roles: ["ADMIN", "TEACHER", "PARENT"],
+      roles: ["ADMIN", "MANAGER", "TEACHER", "PARENT"],
     },
     {
       title: "Pending fees",
@@ -125,13 +125,13 @@ export default async function DashboardPage() {
       href: "/dashboard/notifications",
       icon: Bell,
       color: "text-orange-600",
-      roles: ["ADMIN", "TEACHER", "STUDENT", "PARENT", "LIBRARIAN", "ACCOUNTANT", "STAFF"],
+      roles: ["ADMIN", "MANAGER", "TEACHER", "STUDENT", "PARENT", "LIBRARIAN", "ACCOUNTANT", "STAFF"],
     },
   ];
 
   const stats = allStats.filter((s) => role && s.roles.includes(role));
-  const canSeeStudents = role === "ADMIN" || role === "TEACHER";
-  const canSeeStaff = role === "ADMIN";
+  const canSeeStudents = role === "ADMIN" || role === "MANAGER" || role === "TEACHER";
+  const canSeeStaff = role === "ADMIN" || role === "MANAGER";
 
   return (
     <div className="space-y-6">

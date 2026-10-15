@@ -15,7 +15,7 @@ function refresh() {
  
 async function requireAdmin(message: string) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error(message);
   }
 }

@@ -7,7 +7,7 @@ import { ClassResultsClient } from "@/components/results/class-results-client";
 export default async function ResultsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (!["ADMIN", "TEACHER"].includes(session.user.role)) redirect("/dashboard");
+  if (!["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) redirect("/dashboard");
 
   const [exams, classes] = await Promise.all([getExams(), getClasses()]);
 

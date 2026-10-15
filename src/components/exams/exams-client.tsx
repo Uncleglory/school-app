@@ -39,7 +39,7 @@ export function ExamsClient({ exams, years, terms, subjects, classes, students, 
   const [message, setMessage] = useState("");
   const [results, setResults] = useState<any[]>([]);
 
-  const canManage = ["ADMIN", "TEACHER"].includes(userRole);
+  const canManage = ["ADMIN", "MANAGER", "TEACHER"].includes(userRole);
 
   function handleCreate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -257,7 +257,7 @@ export function ExamsClient({ exams, years, terms, subjects, classes, students, 
                       <Button size="sm" variant="outline" onClick={() => handleViewResults(e.id)}>
                         <Eye className="h-3.5 w-3.5 mr-1" /> View
                       </Button>
-                      {userRole === "ADMIN" && !e.isPublished && (
+                      {["ADMIN", "MANAGER"].includes(userRole) && !e.isPublished && (
                         <Button size="sm" variant="outline" disabled={isPending} onClick={() => handlePublish(e.id)}>
                           Publish
                         </Button>

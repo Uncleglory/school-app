@@ -43,8 +43,18 @@ export async function createStaff(data: {
   password?: string;
 }) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error("Only admins can create staff");
+  }
+
+  // A School Manager may only create ordinary staff logins. Admin, Accountant
+  // and Manager logins would give access to fees, so only an Admin can make them.
+  const requestedRole = data.role || (data.isTeaching ? "TEACHER" : "STAFF");
+  if (
+    session.user.role === "MANAGER" &&
+    !["TEACHER", "STAFF", "LIBRARIAN"].includes(requestedRole)
+  ) {
+    throw new Error("Only the Admin can create this type of login");
   }
 
   const existingUser = await db.user.findUnique({ where: { email: data.email.toLowerCase() } });
@@ -95,7 +105,7 @@ export async function updateStaff(
   }
 ) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 

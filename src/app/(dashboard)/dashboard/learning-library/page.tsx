@@ -10,7 +10,7 @@ export default async function LearningLibraryPage() {
   if (!session?.user) redirect("/login");
 
   const role = session.user.role;
-  const isStaff = role === "ADMIN" || role === "TEACHER";
+  const isStaff = ["ADMIN", "MANAGER", "TEACHER"].includes(role as string);
 
   // Only staff and students use this page for now
   if (!isStaff && role !== "STUDENT") redirect("/dashboard/materials");

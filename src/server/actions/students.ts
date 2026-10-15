@@ -6,7 +6,7 @@ import { Gender, StudentStatus, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 // Roles that may read student records (students and parents may not)
-const STAFF_ROLES: Role[] = ["ADMIN", "TEACHER", "ACCOUNTANT", "LIBRARIAN", "STAFF"];
+const STAFF_ROLES: Role[] = ["ADMIN", "MANAGER", "TEACHER", "ACCOUNTANT", "LIBRARIAN", "STAFF"];
 
 async function requireStaff() {
   const session = await auth();
@@ -101,6 +101,9 @@ export async function getStudentById(id: string) {
     }
   }
 
+  // The School Manager must never see fee information
+  const canSeeFees = session.user.role !== "MANAGER";
+
   return db.student.findUnique({
     where: { id },
     include: {
@@ -108,7 +111,7 @@ export async function getStudentById(id: string) {
       user: SAFE_USER,
       guardians: { include: { parent: { include: { user: SAFE_USER } } } },
       attendance: { orderBy: { date: "desc" }, take: 30 },
-      invoices: { orderBy: { issuedAt: "desc" }, take: 10 },
+      ...(canSeeFees ? { invoices: { orderBy: { issuedAt: "desc" as const }, take: 10 } } : {}),
     },
   });
 }
@@ -202,7 +205,7 @@ export async function createStudent(data: {
   parentEmail?: string;
 }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -249,7 +252,7 @@ export async function updateStudent(
   }
 ) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 

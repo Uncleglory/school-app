@@ -6,10 +6,10 @@ import { InvoiceStatus, PaymentMethod, Role, NotificationType } from "@prisma/cl
 import { revalidatePath } from "next/cache";
 import { Decimal } from "@prisma/client/runtime/library";
 
-// Students and parents must never read school-wide fee data
+// Students, parents and the School Manager must never read school-wide fee data
 async function requireNotStudentOrParent() {
   const session = await auth();
-  if (!session?.user || ["STUDENT", "PARENT"].includes(session.user.role)) {
+  if (!session?.user || ["STUDENT", "PARENT", "MANAGER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
   return session;

@@ -31,7 +31,7 @@ export async function createBook(data: {
   shelfLocation?: string;
 }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "LIBRARIAN"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "LIBRARIAN"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -56,7 +56,7 @@ export async function updateBook(
   data: { title?: string; author?: string; category?: string; shelfLocation?: string; totalCopies?: number }
 ) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "LIBRARIAN"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "LIBRARIAN"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -85,7 +85,7 @@ export async function updateBook(
 
 export async function loanBook(data: { bookId: string; borrowerId: string; dueDate: string }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "LIBRARIAN"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "LIBRARIAN"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -112,7 +112,7 @@ export async function loanBook(data: { bookId: string; borrowerId: string; dueDa
 
 export async function returnBook(loanId: string, fine: number = 0) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "LIBRARIAN"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "LIBRARIAN"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 

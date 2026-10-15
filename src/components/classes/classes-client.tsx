@@ -58,7 +58,7 @@ export function ClassesClient({ classes: initial, staff, userRole }: Props) {
   const [editing, setEditing] = useState<ClassItem | null>(null);
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
-  const canManage = userRole === "ADMIN";
+  const canManage = ["ADMIN", "MANAGER"].includes(userRole);
 
   const filtered = initial.filter(
     (c) =>

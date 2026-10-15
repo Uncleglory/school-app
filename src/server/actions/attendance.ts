@@ -39,7 +39,7 @@ export async function markStudentAttendance(data: {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  const allowedRoles: Role[] = ["ADMIN", "TEACHER"];
+  const allowedRoles: Role[] = ["ADMIN", "MANAGER", "TEACHER"];
   if (!allowedRoles.includes(session.user.role)) {
     throw new Error("You do not have permission to mark attendance");
   }
@@ -196,7 +196,7 @@ export async function bulkMarkStudentAttendance(data: {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  const allowedRoles: Role[] = ["ADMIN", "TEACHER"];
+  const allowedRoles: Role[] = ["ADMIN", "MANAGER", "TEACHER"];
   if (!allowedRoles.includes(session.user.role)) {
     throw new Error("You do not have permission");
   }
@@ -237,7 +237,7 @@ export async function markStaffAttendance(data: {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  const allowedRoles: Role[] = ["ADMIN"];
+  const allowedRoles: Role[] = ["ADMIN", "MANAGER"];
   if (!allowedRoles.includes(session.user.role)) {
     throw new Error("Only admins can mark staff attendance");
   }
@@ -525,7 +525,7 @@ export async function getClassesForAttendanceUser() {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
-  if (session.user.role === "ADMIN") {
+  if (["ADMIN", "MANAGER"].includes(session.user.role)) {
     return getClasses();
   }
 

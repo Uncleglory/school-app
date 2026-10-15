@@ -8,6 +8,19 @@ const RESTRICTED_ALLOWED_PREFIXES = [
   "/dashboard/notifications",
 ];
 
+// The School Manager can open everything except fees
+const MANAGER_BLOCKED_PREFIXES = [
+  "/dashboard/fees",
+  "/dashboard/reset-fees",
+  "/dashboard/users",
+];
+
+function isBlockedForManager(pathname: string) {
+  return MANAGER_BLOCKED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
+  );
+}
+
 function isAllowedForRestricted(pathname: string) {
   return RESTRICTED_ALLOWED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(prefix + "/")
@@ -54,6 +67,10 @@ export const authConfig = {
               new URL("/dashboard/materials", nextUrl)
             );
           }
+        }
+
+        if (role === "MANAGER" && isBlockedForManager(pathname)) {
+          return Response.redirect(new URL("/dashboard", nextUrl));
         }
 
         return true;

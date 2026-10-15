@@ -27,7 +27,7 @@ type StaffMember = {
   formClasses: { name: string }[];
 };
 
-export function StaffClient({ staff }: { staff: StaffMember[] }) {
+export function StaffClient({ staff, userRole }: { staff: StaffMember[]; userRole: string }) {
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<StaffMember | null>(null);
@@ -147,7 +147,7 @@ export function StaffClient({ staff }: { staff: StaffMember[] }) {
                 >
                   <option value="TEACHER">Teacher</option>
                   <option value="STAFF">Staff</option>
-                  <option value="ACCOUNTANT">Accountant</option>
+                  {userRole === "ADMIN" && <option value="ACCOUNTANT">Accountant</option>}
                   <option value="LIBRARIAN">Librarian</option>
                 </select>
               </div>

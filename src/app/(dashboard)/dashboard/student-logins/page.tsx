@@ -6,7 +6,7 @@ import { StudentLoginsClient } from "@/components/student-logins/student-logins-
 export default async function StudentLoginsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/dashboard");
+  if (!["ADMIN", "MANAGER"].includes(session.user.role)) redirect("/dashboard");
 
   const classes = await getStudentLoginOverview();
 

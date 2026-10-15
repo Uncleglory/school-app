@@ -59,7 +59,7 @@ export async function createMaterial(data: {
   visibleToStudents?: boolean;
 }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -82,7 +82,7 @@ export async function createMaterial(data: {
 
 export async function deleteMaterial(id: string) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 

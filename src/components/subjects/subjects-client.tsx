@@ -87,7 +87,7 @@ export function SubjectsClient({
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<SubjectItem | null>(null);
   const [message, setMessage] = useState("");
-  const canManage = userRole === "ADMIN";
+  const canManage = ["ADMIN", "MANAGER"].includes(userRole);
 
   const q = search.toLowerCase();
   const visible = initial.filter((s) => {

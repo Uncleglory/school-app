@@ -14,7 +14,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         const session = await auth();
         if (
           !session?.user ||
-          !["ADMIN", "TEACHER"].includes(session.user.role)
+          !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)
         ) {
           throw new Error("You are not allowed to upload files.");
         }

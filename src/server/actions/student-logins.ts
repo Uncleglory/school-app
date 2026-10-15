@@ -28,7 +28,7 @@ function slug(value: string) {
 
 async function requireAdmin() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error("Only admins can manage student logins");
   }
   return session;

@@ -29,7 +29,7 @@ export async function createExam(data: {
   endDate: string;
 }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -61,7 +61,7 @@ export async function getExams() {
 
 export async function publishExam(examId: string) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error("Only admins can publish results");
   }
 
@@ -86,7 +86,7 @@ export async function enterResult(data: {
   remark?: string;
 }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -195,7 +195,7 @@ export async function getStudentsByClass(classId?: string) {
 
 export async function getClassResultsGrid(examId: string, classId: string) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 
@@ -252,7 +252,7 @@ export async function saveClassScores(data: {
   entries: { studentId: string; subjectId: string; score: number }[];
 }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "TEACHER"].includes(session.user.role)) {
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
   }
 

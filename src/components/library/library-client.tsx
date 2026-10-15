@@ -41,7 +41,7 @@ export function LibraryClient({ books, loans, borrowers, userRole }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [showLoan, setShowLoan] = useState(false);
   const [message, setMessage] = useState("");
-  const canManage = ["ADMIN", "LIBRARIAN"].includes(userRole);
+  const canManage = ["ADMIN", "MANAGER", "LIBRARIAN"].includes(userRole);
 
   function handleAddBook(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

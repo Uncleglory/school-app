@@ -12,7 +12,7 @@ export default async function AttendancePage({ searchParams }: PageProps) {
   if (!session?.user) redirect("/login");
 
   const params = await searchParams;
-  const isAdmin = session.user.role === "ADMIN";
+  const isAdmin = ["ADMIN", "MANAGER"].includes(session.user.role);
   const tab = params.tab === "staff" && isAdmin ? "staff" : "students";
   const date = params.date || new Date().toISOString().split("T")[0];
   const classId = params.classId || undefined;
