@@ -6,7 +6,7 @@ import { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 
-const STAFF_ROLES: Role[] = ["TEACHER", "STAFF", "LIBRARIAN", "ACCOUNTANT"];
+const STAFF_ROLES: Role[] = ["TEACHER", "STAFF", "LIBRARIAN", "ACCOUNTANT", "MANAGER"];
 
 export async function getUsers(roleFilter?: Role) {
   const session = await auth();
@@ -72,7 +72,7 @@ export async function createUser(data: {
   });
 
   // Create related Staff / Parent record if needed
-  if (data.role === "TEACHER" || data.role === "STAFF" || data.role === "LIBRARIAN" || data.role === "ACCOUNTANT") {
+  if (data.role === "TEACHER" || data.role === "STAFF" || data.role === "LIBRARIAN" || data.role === "ACCOUNTANT" || data.role === "MANAGER") {
     const staffNo = data.staffNo || `STF-${Date.now().toString().slice(-6)}`;
     await db.staff.create({
       data: {

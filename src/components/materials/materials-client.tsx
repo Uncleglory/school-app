@@ -111,7 +111,7 @@ export function MaterialsClient({ materials, classes, subjects, userRole }: Prop
   const [isPending, startTransition] = useTransition();
   const [showForm, setShowForm] = useState(false);
   const [message, setMessage] = useState("");
-  const canManage = ["ADMIN", "TEACHER"].includes(userRole);
+  const canManage = ["ADMIN", "MANAGER", "TEACHER"].includes(userRole);
 
   // Folder navigation + search
   const [currentPath, setCurrentPath] = useState<string[]>([]);

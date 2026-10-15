@@ -27,7 +27,7 @@ export async function createClass(data: {
   formTeacherId?: string;
 }) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error("Only admins can create classes");
   }
 
@@ -59,7 +59,7 @@ export async function updateClass(
   }
 ) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error("Only admins can update classes");
   }
 
@@ -88,7 +88,7 @@ export async function updateClass(
 
 export async function deleteClass(id: string) {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
     throw new Error("Only admins can delete classes");
   }
 

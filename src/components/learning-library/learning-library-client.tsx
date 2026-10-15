@@ -134,7 +134,7 @@ export function LearningLibraryClient({
 }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const isStaff = userRole === "ADMIN" || userRole === "TEACHER";
+  const isStaff = ["ADMIN", "MANAGER"].includes(userRole) || userRole === "TEACHER";
 
   // Browsing
   const [section, setSection] = useState<Section | "">("");
@@ -371,7 +371,7 @@ export function LearningLibraryClient({
   function renderItem(item: LibraryItem) {
     const meta = TYPE_MAP[item.type];
     const Icon = meta?.icon ?? FileText;
-    const canDelete = userRole === "ADMIN" || item.addedById === userId;
+    const canDelete = ["ADMIN", "MANAGER"].includes(userRole) || item.addedById === userId;
     return (
       <div
         key={item.id}

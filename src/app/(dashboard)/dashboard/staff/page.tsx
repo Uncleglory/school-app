@@ -6,7 +6,7 @@ import { StaffClient } from "@/components/staff/staff-client";
 export default async function StaffPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/dashboard");
+  if (!["ADMIN", "MANAGER"].includes(session.user.role)) redirect("/dashboard");
 
   const staff = await getStaffList();
 
@@ -16,7 +16,7 @@ export default async function StaffPage() {
         <h1 className="text-2xl font-bold tracking-tight">Staff</h1>
         <p className="text-muted-foreground">Manage teachers and non-teaching staff.</p>
       </div>
-      <StaffClient staff={JSON.parse(JSON.stringify(staff))} />
+      <StaffClient staff={JSON.parse(JSON.stringify(staff))} userRole={session.user.role} />
     </div>
   );
 }

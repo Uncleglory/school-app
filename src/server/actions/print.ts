@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 export async function getPaymentReceipt(paymentId: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
+  // The School Manager must never see fee receipts
+  if (session.user.role === "MANAGER") throw new Error("Unauthorized");
 
   const payment = await db.payment.findUnique({
     where: { id: paymentId },
@@ -73,7 +75,7 @@ export async function getReportCardData(studentId: string, examId: string) {
   // Only show published results to non-staff
   if (
     !exam.isPublished &&
-    !["ADMIN", "TEACHER"].includes(session.user.role)
+    !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)
   ) {
     throw new Error("Results not yet published");
   }
@@ -108,6 +110,10 @@ export async function getReportCardData(studentId: string, examId: string) {
 }
 
 export async function getPaymentsForInvoice(invoiceId: string) {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "ACCOUNTANT"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
   return db.payment.findMany({
     where: { invoiceId },
     orderBy: { paidAt: "desc" },

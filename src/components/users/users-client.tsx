@@ -28,8 +28,12 @@ interface Props {
   users: UserItem[];
 }
 
+const ROLE_LABEL: Record<string, string> = { MANAGER: "SCHOOL MANAGER" };
+const roleLabel = (r: string) => ROLE_LABEL[r] || r;
+
 const ROLES = [
   "ADMIN",
+  "MANAGER",
   "TEACHER",
   "STAFF",
   "PARENT",
@@ -140,6 +144,7 @@ export function UsersClient({ users: initial }: Props) {
 
   const roleColor: Record<string, string> = {
     ADMIN: "bg-purple-100 text-purple-800",
+    MANAGER: "bg-indigo-100 text-indigo-800",
     TEACHER: "bg-blue-100 text-blue-800",
     STAFF: "bg-slate-100 text-slate-800",
     PARENT: "bg-amber-100 text-amber-800",
@@ -178,7 +183,7 @@ export function UsersClient({ users: initial }: Props) {
             <option value="">All roles</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
-                {r}
+                {roleLabel(r)}
               </option>
             ))}
           </select>
@@ -226,7 +231,7 @@ export function UsersClient({ users: initial }: Props) {
                 <select name="role" required className="flex h-9 w-full rounded-md border px-3 text-sm">
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {roleLabel(r)}
                     </option>
                   ))}
                 </select>
@@ -313,7 +318,7 @@ export function UsersClient({ users: initial }: Props) {
                 >
                   {ROLES.map((r) => (
                     <option key={r} value={r}>
-                      {r}
+                      {roleLabel(r)}
                     </option>
                   ))}
                 </select>
@@ -395,7 +400,7 @@ export function UsersClient({ users: initial }: Props) {
                           roleColor[u.role] || "bg-gray-100"
                         )}
                       >
-                        {u.role}
+                        {roleLabel(u.role)}
                       </span>
                     </td>
                     <td className="py-3 text-muted-foreground">{u.phone || "—"}</td>

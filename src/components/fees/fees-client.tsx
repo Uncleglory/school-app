@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { FeesSummary } from "@/components/fees/fees-summary";
 import { Label } from "@/components/ui/label";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Wallet, FileText, CreditCard, Plus, Zap, Pencil, EyeOff, Banknote, Trash2 } from "lucide-react";
@@ -341,6 +342,7 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
       </div>
 
       {tab === "overview" && (
+        <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Invoiced</CardTitle></CardHeader>
@@ -358,6 +360,8 @@ export function FeesClient({ structures, invoices, stats, years, terms, classes,
             <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Overdue</CardTitle></CardHeader>
             <CardContent><div className="text-2xl font-bold text-red-600">{stats.overdueCount}</div></CardContent>
           </Card>
+        </div>
+        <FeesSummary invoices={invoices} />
         </div>
       )}
 

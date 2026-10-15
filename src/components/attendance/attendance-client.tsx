@@ -124,9 +124,9 @@ export function AttendanceClient({
     });
   }
 
-  const canMarkStudents = ["ADMIN", "TEACHER"].includes(userRole);
-  const canMarkStaff = userRole === "ADMIN";
-  const canViewStaffTab = userRole === "ADMIN";
+  const canMarkStudents = ["ADMIN", "MANAGER", "TEACHER"].includes(userRole);
+  const canMarkStaff = ["ADMIN", "MANAGER"].includes(userRole);
+  const canViewStaffTab = ["ADMIN", "MANAGER"].includes(userRole);
 
   return (
     <div className="space-y-4">

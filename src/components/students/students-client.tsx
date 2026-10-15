@@ -37,7 +37,7 @@ export function StudentsClient({ students: initial, classes, userRole }: Props) 
   const [search, setSearch] = useState("");
   const [message, setMessage] = useState("");
   const [editing, setEditing] = useState<Student | null>(null);
-  const canManage = ["ADMIN", "TEACHER"].includes(userRole);
+  const canManage = ["ADMIN", "MANAGER", "TEACHER"].includes(userRole);
 
   // Classes in natural order (GS1, GS2 ... GS10), so they never look mixed up
   const sortedClasses = [...classes].sort((a, b) =>

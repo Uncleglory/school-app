@@ -9,11 +9,14 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 export default async function ReportsPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role !== "ADMIN") redirect("/dashboard");
+  if (!["ADMIN", "MANAGER"].includes(session.user.role)) redirect("/dashboard");
+
+  // The School Manager sees attendance and exam reports, but never fee figures
+  const canSeeFees = session.user.role === "ADMIN";
 
   const [feeReport, feeStats, exams] = await Promise.all([
-    getFeeCollectionReport(),
-    getFeeStats(),
+    canSeeFees ? getFeeCollectionReport() : Promise.resolve(null),
+    canSeeFees ? getFeeStats() : Promise.resolve(null),
     getExams(),
   ]);
 
@@ -22,10 +25,14 @@ export default async function ReportsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Reports</h1>
         <p className="text-muted-foreground">
-          Overview of fees, attendance and academic performance.
+          {canSeeFees
+            ? "Overview of fees, attendance and academic performance."
+            : "Overview of exams and academic performance."}
         </p>
       </div>
 
+      {feeStats && feeReport && (
+      <>
       {/* Fee Summary */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -122,6 +129,9 @@ export default async function ReportsPage() {
           )}
         </CardContent>
       </Card>
+
+      </>
+      )}
 
       {/* Exams summary */}
       <Card>
