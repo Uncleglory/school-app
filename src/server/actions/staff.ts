@@ -6,10 +6,33 @@ import { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 
+async function requireStaffManagementAccess() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+  return session;
+}
+
 export async function getStaffList() {
+  await requireStaffManagementAccess();
+
   return db.staff.findMany({
     include: {
-      user: true,
+      // Never return the full User record: passwordHash and other private fields
+      // must not cross the server-action boundary.
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          avatarUrl: true,
+        },
+      },
       formClasses: true,
       _count: { select: { attendance: true, leaveRequests: true } },
     },
@@ -18,10 +41,24 @@ export async function getStaffList() {
 }
 
 export async function getStaffById(id: string) {
+  await requireStaffManagementAccess();
+
   return db.staff.findUnique({
     where: { id },
     include: {
-      user: true,
+      // Explicit allowlist prevents passwordHash from being returned.
+      user: {
+        select: {
+          id: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+          role: true,
+          isActive: true,
+          avatarUrl: true,
+        },
+      },
       formClasses: true,
       attendance: { orderBy: { date: "desc" }, take: 30 },
       leaveRequests: { orderBy: { createdAt: "desc" }, take: 10 },
