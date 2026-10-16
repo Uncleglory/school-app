@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { MaterialType, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { getTeacherAssignments, teacherHasSubjectAssignment } from "@/server/teacher-access";
 
 export async function getMaterials(filters?: { classId?: string; subjectId?: string }) {
   const session = await auth();
@@ -15,7 +16,18 @@ export async function getMaterials(filters?: { classId?: string; subjectId?: str
   const onlyVisible = ["STUDENT", "PARENT"].includes(role);
 
   let allowedClassIds: string[] | null = null;
-  if (role === "STUDENT") {
+  const teacherAssignments = role === "TEACHER" ? await getTeacherAssignments(session.user.id) : null;
+  if (teacherAssignments) {
+    if (filters?.classId && !teacherAssignments.classIds.includes(filters.classId)) {
+      throw new Error("You can only view materials for your assigned classes");
+    }
+    if (filters?.subjectId && !teacherAssignments.teaching.some((item) =>
+      item.subjectId === filters.subjectId && (!filters.classId || item.classId === filters.classId)
+    )) {
+      throw new Error("You can only view materials for your assigned subjects");
+    }
+    allowedClassIds = teacherAssignments.classIds;
+  } else if (role === "STUDENT") {
     const student = await db.student.findUnique({
       where: { userId: session.user.id },
       select: { classId: true },
@@ -31,7 +43,7 @@ export async function getMaterials(filters?: { classId?: string; subjectId?: str
       .filter((id): id is string => !!id);
   }
 
-  return db.teachingMaterial.findMany({
+  const materials = await db.teachingMaterial.findMany({
     where: {
       ...(onlyVisible ? { visibleToStudents: true } : {}),
       ...(allowedClassIds
@@ -47,6 +59,19 @@ export async function getMaterials(filters?: { classId?: string; subjectId?: str
     },
     orderBy: { createdAt: "desc" },
   });
+
+  if (!teacherAssignments) return materials;
+  return materials.filter((material) => {
+    if (!material.classId && !material.subjectId) return true;
+    if (!material.classId && material.subjectId) {
+      return teacherAssignments.teaching.some((item) => item.subjectId === material.subjectId);
+    }
+    if (material.classId && !teacherAssignments.classIds.includes(material.classId)) return false;
+    if (material.classId && material.subjectId) {
+      return teacherHasSubjectAssignment(teacherAssignments, material.classId, material.subjectId);
+    }
+    return true;
+  });
 }
 
 export async function createMaterial(data: {
@@ -61,6 +86,21 @@ export async function createMaterial(data: {
   const session = await auth();
   if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
+  }
+
+  if (session.user.role === "TEACHER") {
+    const assignments = await getTeacherAssignments(session.user.id);
+    if (!data.classId && !data.subjectId) {
+      throw new Error("Please choose an assigned class or subject for this material");
+    }
+    if (data.classId && !assignments.classIds.includes(data.classId)) {
+      throw new Error("You can only add materials to your assigned classes");
+    }
+    if (data.subjectId && (data.classId
+      ? !teacherHasSubjectAssignment(assignments, data.classId, data.subjectId)
+      : !assignments.teaching.some((item) => item.subjectId === data.subjectId))) {
+      throw new Error("You can only add materials for your assigned subjects");
+    }
   }
 
   const material = await db.teachingMaterial.create({

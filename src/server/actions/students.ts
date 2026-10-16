@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { Gender, StudentStatus, Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { getTeacherAssignments } from "@/server/teacher-access";
 
 // Roles that may read student records (students and parents may not)
 const STAFF_ROLES: Role[] = ["ADMIN", "MANAGER", "TEACHER", "ACCOUNTANT", "LIBRARIAN", "STAFF"];
@@ -209,6 +210,13 @@ export async function createStudent(data: {
     throw new Error("Unauthorized");
   }
 
+  if (session.user.role === "TEACHER") {
+    const assignments = await getTeacherAssignments(session.user.id);
+    if (!data.classId || !assignments.classIds.includes(data.classId)) {
+      throw new Error("You can only add students to your assigned classes");
+    }
+  }
+
   const existing = await db.student.findUnique({ where: { admissionNo: data.admissionNo } });
   if (existing) throw new Error("Admission number already exists");
 
@@ -254,6 +262,17 @@ export async function updateStudent(
   const session = await auth();
   if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
     throw new Error("Unauthorized");
+  }
+
+  if (session.user.role === "TEACHER") {
+    const existingStudent = await db.student.findUnique({ where: { id }, select: { classId: true } });
+    const assignments = await getTeacherAssignments(session.user.id);
+    if (!existingStudent?.classId || !assignments.classIds.includes(existingStudent.classId)) {
+      throw new Error("You can only update students in your assigned classes");
+    }
+    if (data.classId !== undefined || data.status !== undefined) {
+      throw new Error("Only an admin or manager can change a student's class or status");
+    }
   }
 
   const student = await db.student.update({

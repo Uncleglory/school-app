@@ -4,12 +4,19 @@ import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { Role } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { getTeacherAssignments } from "@/server/teacher-access";
 
 export async function getClassesFull() {
   const session = await auth();
   if (!session?.user) throw new Error("Unauthorized");
 
+  const teacherAssignments = session.user.role === "TEACHER"
+    ? await getTeacherAssignments(session.user.id)
+    : null;
+  if (teacherAssignments && teacherAssignments.classIds.length === 0) return [];
+
   return db.class.findMany({
+    where: teacherAssignments ? { id: { in: teacherAssignments.classIds } } : undefined,
     orderBy: { name: "asc" },
     include: {
       formTeacher: {
@@ -108,6 +115,10 @@ export async function deleteClass(id: string) {
 }
 
 export async function getStaffForFormTeacher() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
   return db.staff.findMany({
     where: { isTeaching: true },
     include: {

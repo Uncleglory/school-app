@@ -486,17 +486,21 @@ export async function getStudentsForAttendance(classId?: string, date?: string) 
 
 export async function getStaffForAttendance(date?: string) {
   const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
 
   const attendanceDate = date ? new Date(date) : new Date();
   attendanceDate.setHours(0, 0, 0, 0);
 
   const staff = await db.staff.findMany({
-    include: {
-      user: true,
-      attendance: {
-        where: { date: attendanceDate },
-      },
+    select: {
+      id: true,
+      staffNo: true,
+      position: true,
+      department: true,
+      user: { select: { firstName: true, lastName: true } },
+      attendance: { where: { date: attendanceDate } },
     },
     orderBy: { staffNo: "asc" },
   });
@@ -515,6 +519,19 @@ export async function getStaffForAttendance(date?: string) {
 }
 
 export async function getClasses() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+  if (session.user.role === "TEACHER") {
+    const allowedIds = await getTeacherAllowedClassIds(session.user.id);
+    if (allowedIds.length === 0) return [];
+    return db.class.findMany({
+      where: { id: { in: allowedIds } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+  }
   return db.class.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true },
