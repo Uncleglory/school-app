@@ -274,6 +274,7 @@ export async function getStudentsByClass(classId?: string) {
     where: {
       status: "ACTIVE",
       ...(effectiveClassIds ? { classId: { in: effectiveClassIds } } : {}),
+    },
     include: { class: true },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
