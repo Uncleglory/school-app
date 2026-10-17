@@ -9,21 +9,15 @@ import { revalidatePath } from "next/cache";
 // HELPERS — scope a teacher to their own class(es)
 // ─────────────────────────────────────────────
 
+// Attendance is only for the teacher's OWN class (form/class teacher).
+// Teaching a subject in another class does NOT allow marking its register.
 async function getTeacherAllowedClassIds(userId: string): Promise<string[]> {
   const staff = await db.staff.findUnique({
     where: { userId },
-    include: {
-      formClasses: { select: { id: true } },
-      teaching: { select: { classId: true } },
-    },
+    select: { formClasses: { select: { id: true } } },
   });
-
   if (!staff) return [];
-
-  const ids = new Set<string>();
-  staff.formClasses.forEach((c) => ids.add(c.id));
-  staff.teaching.forEach((t) => ids.add(t.classId));
-  return Array.from(ids);
+  return staff.formClasses.map((c) => c.id);
 }
 
 // ─────────────────────────────────────────────
@@ -208,7 +202,16 @@ export async function bulkMarkStudentAttendance(data: {
     }
   }
 
-  const attendanceDate = new Date(data.date);
+  // Every student submitted must really be in the stated class (blocks tampering)
+  if (session.user.role === "TEACHER") {
+    const ids = data.records.map((r) => r.studentId);
+    const inClass = await db.student.count({
+      where: { id: { in: ids }, classId: data.classId },
+    });
+    if (inClass !== ids.length) {
+      throw new Error("Some students are not in your class");
+    }
+  }
 
   for (const rec of data.records) {
     await markStudentAttendance({
@@ -486,17 +489,21 @@ export async function getStudentsForAttendance(classId?: string, date?: string) 
 
 export async function getStaffForAttendance(date?: string) {
   const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
 
   const attendanceDate = date ? new Date(date) : new Date();
   attendanceDate.setHours(0, 0, 0, 0);
 
   const staff = await db.staff.findMany({
-    include: {
-      user: true,
-      attendance: {
-        where: { date: attendanceDate },
-      },
+    select: {
+      id: true,
+      staffNo: true,
+      position: true,
+      department: true,
+      user: { select: { firstName: true, lastName: true } },
+      attendance: { where: { date: attendanceDate } },
     },
     orderBy: { staffNo: "asc" },
   });
@@ -515,6 +522,19 @@ export async function getStaffForAttendance(date?: string) {
 }
 
 export async function getClasses() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+  if (session.user.role === "TEACHER") {
+    const allowedIds = await getTeacherAllowedClassIds(session.user.id);
+    if (allowedIds.length === 0) return [];
+    return db.class.findMany({
+      where: { id: { in: allowedIds } },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+  }
   return db.class.findMany({
     orderBy: { name: "asc" },
     select: { id: true, name: true },

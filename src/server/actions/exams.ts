@@ -2,9 +2,10 @@
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { ExamType, Role } from "@prisma/client";
+import { ExamType, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { Decimal } from "@prisma/client/runtime/library";
+import { getTeacherAssignments, teacherHasSubjectAssignment } from "@/server/teacher-access";
 
 function calculateGrade(score: number, maxScore: number = 100): string {
   const pct = (score / maxScore) * 100;
@@ -29,8 +30,8 @@ export async function createExam(data: {
   endDate: string;
 }) {
   const session = await auth();
-  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
-    throw new Error("Unauthorized");
+  if (!session?.user || !["ADMIN", "MANAGER"].includes(session.user.role)) {
+    throw new Error("Only admins can create exams");
   }
 
   const exam = await db.exam.create({
@@ -49,6 +50,11 @@ export async function createExam(data: {
 }
 
 export async function getExams() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
   return db.exam.findMany({
     include: {
       academicYear: true,
@@ -90,7 +96,24 @@ export async function enterResult(data: {
     throw new Error("Unauthorized");
   }
 
+  if (session.user.role === "TEACHER") {
+    const student = await db.student.findUnique({
+      where: { id: data.studentId },
+      select: { classId: true },
+    });
+    const assignments = await getTeacherAssignments(session.user.id);
+    if (
+      !student?.classId ||
+      !teacherHasSubjectAssignment(assignments, student.classId, data.subjectId)
+    ) {
+      throw new Error("You can only enter scores for your assigned class and subject");
+    }
+  }
+
   const maxScore = data.maxScore ?? 100;
+  if (!Number.isFinite(data.score) || !Number.isFinite(maxScore) || maxScore <= 0 || data.score < 0 || data.score > maxScore) {
+    throw new Error("Score must be between 0 and the maximum score");
+  }
   const grade = calculateGrade(data.score, maxScore);
 
   const result = await db.examResult.upsert({
@@ -126,11 +149,23 @@ export async function enterResult(data: {
 }
 
 export async function getResultsForExam(examId: string, classId?: string) {
-  return db.examResult.findMany({
-    where: {
-      examId,
-      ...(classId ? { student: { classId } } : {}),
-    },
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
+  let where: Prisma.ExamResultWhereInput = { examId, ...(classId ? { student: { classId } } : {}) };
+  let teacherAssignments: Awaited<ReturnType<typeof getTeacherAssignments>> | null = null;
+  if (session.user.role === "TEACHER") {
+    teacherAssignments = await getTeacherAssignments(session.user.id);
+    if (classId && !teacherAssignments.classIds.includes(classId)) {
+      throw new Error("You can only view results for your assigned classes");
+    }
+    where = { examId, student: { classId: { in: teacherAssignments.classIds } } };
+  }
+
+  const results = await db.examResult.findMany({
+    where,
     include: {
       student: { include: { class: true } },
       subject: true,
@@ -141,14 +176,44 @@ export async function getResultsForExam(examId: string, classId?: string) {
       { subject: { name: "asc" } },
     ],
   });
+
+  if (teacherAssignments) {
+    return results.filter((result) =>
+      !!result.student.classId &&
+      teacherHasSubjectAssignment(teacherAssignments!, result.student.classId, result.subjectId)
+    );
+  }
+  return results;
 }
 
 export async function getStudentReportCard(studentId: string, examId: string) {
-  const results = await db.examResult.findMany({
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+
+  let teacherAssignments: Awaited<ReturnType<typeof getTeacherAssignments>> | null = null;
+  if (session.user.role === "TEACHER") {
+    const target = await db.student.findUnique({ where: { id: studentId }, select: { classId: true } });
+    teacherAssignments = await getTeacherAssignments(session.user.id);
+    if (!target?.classId || !teacherAssignments.classIds.includes(target.classId)) {
+      throw new Error("You can only view students in your assigned classes");
+    }
+  }
+
+  let results = await db.examResult.findMany({
     where: { studentId, examId },
     include: { subject: true, exam: true },
     orderBy: { subject: { name: "asc" } },
   });
+
+  if (teacherAssignments) {
+    const target = await db.student.findUnique({ where: { id: studentId }, select: { classId: true } });
+    results = results.filter((result) =>
+      !!target?.classId &&
+      teacherHasSubjectAssignment(teacherAssignments!, target.classId, result.subjectId)
+    );
+  }
 
   const student = await db.student.findUnique({
     where: { id: studentId },
@@ -175,14 +240,40 @@ export async function getStudentReportCard(studentId: string, examId: string) {
 }
 
 export async function getSubjects() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+  if (session.user.role === "TEACHER") {
+    const assignments = await getTeacherAssignments(session.user.id);
+    if (!assignments.staffId) return [];
+    return db.subject.findMany({
+      where: { classes: { some: { teacherId: assignments.staffId } } },
+      orderBy: { name: "asc" },
+    });
+  }
   return db.subject.findMany({ orderBy: { name: "asc" } });
 }
 
 export async function getStudentsByClass(classId?: string) {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
+  let effectiveClassIds: string[] | null = null;
+  if (session.user.role === "TEACHER") {
+    const assignments = await getTeacherAssignments(session.user.id);
+    if (classId && !assignments.classIds.includes(classId)) {
+      throw new Error("You can only view students in your assigned classes");
+    }
+    effectiveClassIds = classId ? [classId] : assignments.classIds;
+  } else if (classId) {
+    effectiveClassIds = [classId];
+  }
   return db.student.findMany({
     where: {
       status: "ACTIVE",
-      ...(classId ? { classId } : {}),
+      ...(effectiveClassIds ? { classId: { in: effectiveClassIds } } : {}),
     },
     include: { class: true },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -199,6 +290,13 @@ export async function getClassResultsGrid(examId: string, classId: string) {
     throw new Error("Unauthorized");
   }
 
+  const teacherAssignments = session.user.role === "TEACHER"
+    ? await getTeacherAssignments(session.user.id)
+    : null;
+  if (teacherAssignments && (!teacherAssignments.staffId || !teacherAssignments.classIds.includes(classId))) {
+    throw new Error("You can only view results for your assigned classes");
+  }
+
   const [exam, klass, students, classSubjects, existing] = await Promise.all([
     db.exam.findUnique({ where: { id: examId }, select: { id: true, name: true } }),
     db.class.findUnique({ where: { id: classId }, select: { id: true, name: true } }),
@@ -208,7 +306,7 @@ export async function getClassResultsGrid(examId: string, classId: string) {
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     }),
     db.classSubject.findMany({
-      where: { classId },
+      where: { classId, ...(teacherAssignments ? { teacherId: teacherAssignments.staffId! } : {}) },
       include: { subject: { select: { id: true, name: true } } },
     }),
     db.examResult.findMany({
@@ -221,7 +319,7 @@ export async function getClassResultsGrid(examId: string, classId: string) {
 
   // Use the subjects set up for this class; if none are set up, offer every subject
   let subjects = classSubjects.map((cs) => cs.subject);
-  if (subjects.length === 0) {
+  if (subjects.length === 0 && !teacherAssignments) {
     subjects = await db.subject.findMany({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
@@ -231,6 +329,7 @@ export async function getClassResultsGrid(examId: string, classId: string) {
 
   const scores: Record<string, number> = {};
   for (const r of existing) {
+    if (teacherAssignments && !teacherHasSubjectAssignment(teacherAssignments, classId, r.subjectId)) continue;
     scores[`${r.studentId}:${r.subjectId}`] = Number(r.score);
   }
 
@@ -261,6 +360,22 @@ export async function saveClassScores(data: {
   );
   if (entries.length !== data.entries.length) {
     throw new Error("Every score must be a number from 0 to 100");
+  }
+
+  if (session.user.role === "TEACHER") {
+    const assignments = await getTeacherAssignments(session.user.id);
+    const studentIds = Array.from(new Set(entries.map((entry) => entry.studentId)));
+    const students = await db.student.findMany({
+      where: { id: { in: studentIds } },
+      select: { id: true, classId: true },
+    });
+    const classByStudent = new Map(students.map((student) => [student.id, student.classId]));
+    if (students.length !== studentIds.length || entries.some((entry) => {
+      const assignedClassId = classByStudent.get(entry.studentId);
+      return !assignedClassId || !teacherHasSubjectAssignment(assignments, assignedClassId, entry.subjectId);
+    })) {
+      throw new Error("You can only save scores for your assigned class and subject");
+    }
   }
 
   const CHUNK = 100;

@@ -137,6 +137,10 @@ export async function returnBook(loanId: string, fine: number = 0) {
 }
 
 export async function getActiveLoans() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER", "STAFF", "LIBRARIAN"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
   return db.bookLoan.findMany({
     where: { status: { in: ["ACTIVE", "OVERDUE"] } },
     include: {
@@ -148,6 +152,10 @@ export async function getActiveLoans() {
 }
 
 export async function getBorrowers() {
+  const session = await auth();
+  if (!session?.user || !["ADMIN", "MANAGER", "TEACHER", "STAFF", "LIBRARIAN"].includes(session.user.role)) {
+    throw new Error("Unauthorized");
+  }
   // Students and staff who can borrow
   return db.user.findMany({
     where: {
