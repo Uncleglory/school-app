@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { getMessagingOverview } from "@/server/actions/messaging";
 import { MessagesClient } from "@/components/messages/messages-client";
+import { AbsenteesPanel } from "@/components/messages/absentees-panel";
 
 export const maxDuration = 60; // sending to hundreds of parents takes a little while
 
@@ -21,6 +22,7 @@ export default async function MessagesPage() {
           Send one SMS to the parents of one class, several classes, or the whole school.
         </p>
       </div>
+      <AbsenteesPanel smsReady={smsReady} />
       <MessagesClient classes={classes} smsReady={smsReady} />
     </div>
   );
