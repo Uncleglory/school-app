@@ -16,6 +16,7 @@ import {
   BookMarked,
   Library,
   Trophy,
+  MessageSquare,
 } from "lucide-react";
 import { Role } from "@prisma/client";
 
@@ -95,6 +96,12 @@ export const navItems: NavItem[] = [
     href: "/dashboard/results",
     icon: Trophy,
     roles: ["ADMIN", "MANAGER", "TEACHER"],
+  },
+  {
+    title: "Message Parents",
+    href: "/dashboard/messages",
+    icon: MessageSquare,
+    roles: ["ADMIN", "MANAGER"],
   },
   {
     title: "Reports",

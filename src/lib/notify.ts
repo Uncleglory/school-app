@@ -84,6 +84,7 @@ export async function sendSms(opts: { to: string; message: string }) {
         username,
         to: phone,
         message: opts.message,
+        ...(process.env.AT_SENDER_ID ? { from: process.env.AT_SENDER_ID } : {}),
       }),
     });
 
@@ -97,6 +98,73 @@ export async function sendSms(opts: { to: string; message: string }) {
     console.error("[sms exception]", err);
     return { ok: false, error: err };
   }
+}
+
+// ─────────────────────────────────────────────
+// Nigerian phone numbers + bulk SMS
+// ─────────────────────────────────────────────
+
+/**
+ * Turns 0806 302 1584, 08063021584, 2348063021584 or +2348063021584 into
+ * +2348063021584. Returns null when it is not a valid Nigerian mobile number.
+ */
+export function normalizeNgPhone(raw?: string | null): string | null {
+  if (!raw) return null;
+  let d = raw.replace(/[^\d+]/g, "");
+  if (d.startsWith("+")) d = d.slice(1);
+  if (d.startsWith("0")) d = "234" + d.slice(1);
+  return /^234(70|80|81|90|91)\d{8}$/.test(d) ? "+" + d : null;
+}
+
+/**
+ * Sends one message to many numbers (Africa's Talking accepts up to 1000 per
+ * request; we use batches of 100). If AT_SENDER_ID is set (after the sender ID is
+ * approved) it is used as the sender name.
+ */
+export async function sendBulkSms(opts: { numbers: string[]; message: string }) {
+  const apiKey = process.env.AT_API_KEY;
+  const username = process.env.AT_USERNAME;
+  if (!apiKey || !username) {
+    return { ok: false as const, skipped: true, sent: 0, failed: opts.numbers.length, errors: ["SMS is not set up (AT_API_KEY / AT_USERNAME missing)."] };
+  }
+
+  let sent = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (let i = 0; i < opts.numbers.length; i += 100) {
+    const batch = opts.numbers.slice(i, i + 100);
+    const body = new URLSearchParams({ username, to: batch.join(","), message: opts.message });
+    if (process.env.AT_SENDER_ID) body.set("from", process.env.AT_SENDER_ID);
+
+    try {
+      const res = await fetch("https://api.africastalking.com/version1/messaging", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded", apiKey },
+        body,
+      });
+      const text = await res.text();
+      let data: any = null;
+      try { data = JSON.parse(text); } catch { /* not JSON */ }
+
+      if (!res.ok || !data?.SMSMessageData) {
+        failed += batch.length;
+        errors.push(`Batch ${i / 100 + 1}: ${data?.SMSMessageData?.Message || text.slice(0, 120) || res.status}`);
+        continue;
+      }
+      const recipients: any[] = data.SMSMessageData.Recipients || [];
+      const ok = recipients.filter((r) => r.status === "Success" || r.statusCode === 100 || r.statusCode === 101 || r.statusCode === 102).length;
+      sent += ok;
+      failed += batch.length - ok;
+      const firstBad = recipients.find((r) => !(r.status === "Success" || [100, 101, 102].includes(r.statusCode)));
+      if (firstBad) errors.push(`Some numbers were refused (for example: ${firstBad.status || firstBad.statusCode}).`);
+    } catch (err: any) {
+      failed += batch.length;
+      errors.push(`Batch ${i / 100 + 1}: ${err?.message || "network error"}`);
+    }
+  }
+
+  return { ok: sent > 0, skipped: false, sent, failed, errors: Array.from(new Set(errors)) };
 }
 
 // ─────────────────────────────────────────────
